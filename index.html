@@ -5,27 +5,40 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#17324d" />
   <title>Зловживання процесуальними правами | Суддівська симуляція</title>
-  <link rel="stylesheet" href="styles.css?v=20260929-3" />
-  <link rel="stylesheet" href="enhancements.css?v=20260929-3" />
+  <link rel="stylesheet" href="styles.css?v=20260929-4" />
+  <link rel="stylesheet" href="enhancements.css?v=20260929-4" />
   <style>
     .nsju-logo-wrap,.nsju-logo-wrap.compact,.login-brand .nsju-logo-wrap{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;overflow:visible!important}
-    .nsju-logo{filter:none!important;object-fit:contain!important;display:block!important;visibility:visible!important;opacity:1!important;width:110px!important;height:auto!important;min-width:110px!important}
-    .login-brand .nsju-logo{width:150px!important;min-width:150px!important;height:auto!important}
-    .footer-brand img{background:transparent!important;border-radius:0!important;padding:0!important;filter:none!important;display:block!important;width:105px!important;min-width:105px!important;height:auto!important;visibility:visible!important;opacity:1!important}
+    .nsju-logo{filter:none!important;object-fit:contain!important;display:block!important;visibility:visible!important;opacity:1!important;width:76px!important;height:auto!important;min-width:76px!important}
+    .login-brand{display:flex!important;align-items:center!important;gap:26px!important}
+    .login-brand .nsju-logo-wrap{flex:0 0 124px!important;width:124px!important;max-width:124px!important}
+    .login-brand .nsju-logo{width:124px!important;min-width:124px!important;max-width:124px!important;height:auto!important}
+    .login-brand>div:last-child{min-width:0!important;flex:1 1 auto!important}
+    .identity{gap:18px!important}
+    .identity .nsju-logo-wrap.compact{flex:0 0 72px!important;width:72px!important;max-width:72px!important}
+    .identity .nsju-logo-wrap.compact .nsju-logo{width:72px!important;min-width:72px!important;max-width:72px!important}
+    .footer-brand img{background:transparent!important;border-radius:0!important;padding:0!important;filter:none!important;display:block!important;width:82px!important;min-width:82px!important;height:auto!important;visibility:visible!important;opacity:1!important}
     .final-scoreboard{margin-top:20px;text-align:center}
     .final-score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
     .final-score-card{border:1px solid #ded6ca;border-radius:16px;padding:18px;background:linear-gradient(180deg,#fff,#f7f1e8)}
     .final-score-card strong{display:block;color:#17324d;font-size:16px}
     .final-score-card span{display:block;color:#7b2f3d;font-size:40px;font-weight:900;margin:7px 0 2px}
     .final-score-card small{color:#6e7780}
-    @media(max-width:760px){.final-score-grid{grid-template-columns:1fr}.nsju-logo{width:88px!important;min-width:88px!important}.login-brand .nsju-logo{width:120px!important;min-width:120px!important}}
+    @media(max-width:760px){
+      .final-score-grid{grid-template-columns:1fr}
+      .login-brand{gap:16px!important}
+      .login-brand .nsju-logo-wrap{flex-basis:92px!important;width:92px!important;max-width:92px!important}
+      .login-brand .nsju-logo{width:92px!important;min-width:92px!important;max-width:92px!important}
+      .identity .nsju-logo-wrap.compact{flex-basis:58px!important;width:58px!important;max-width:58px!important}
+      .identity .nsju-logo-wrap.compact .nsju-logo{width:58px!important;min-width:58px!important;max-width:58px!important}
+    }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  <script src="data.js?v=20260929-3"></script>
-  <script src="app.js?v=20260929-3"></script>
-  <script src="enhancements.js?v=20260929-3"></script>
-  <script src="site-patches.js?v=20260929-3"></script>
+  <script src="data.js?v=20260929-4"></script>
+  <script src="app.js?v=20260929-4"></script>
+  <script src="enhancements.js?v=20260929-4"></script>
+  <script src="site-patches.js?v=20260929-4"></script>
 </body>
 </html>

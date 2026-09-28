@@ -1,5 +1,5 @@
 (function(){
-  const LOGO='/nsju-emblem.png?v=20260928-4';
+  const LOGO='/nsju-emblem.png?v=20260929-1';
   function fixLogo(){
     document.querySelectorAll('img').forEach(img=>{
       const src=(img.getAttribute('src')||'').toLowerCase();
@@ -10,15 +10,8 @@
         img.style.objectFit='contain';
         img.style.visibility='visible';
         img.style.opacity='1';
-        img.style.height='auto';
-        img.style.maxWidth='none';
-        if(img.closest('.login-brand')){
-          img.style.width='150px';
-        }else if(img.closest('.footer-brand')){
-          img.style.width='92px';
-        }else{
-          img.style.width='88px';
-        }
+        img.style.width='auto';
+        img.style.maxWidth='100%';
       }
     });
   }
@@ -36,9 +29,7 @@
   }
   function run(){fixLogo();addFinalScoreboard();}
   document.addEventListener('DOMContentLoaded',run);
-  const obs=new MutationObserver(run);
+  const obs=new MutationObserver(()=>run());
   obs.observe(document.documentElement,{subtree:true,childList:true});
-  setTimeout(run,0);
-  setTimeout(run,250);
-  setTimeout(run,1000);
+  setInterval(run,1000);
 })();

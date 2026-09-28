@@ -1,10 +1,10 @@
 (function(){
-  const LOGO='/nsju-emblem.png?v=20260929-1';
+  const LOGO='/logo-fallback.svg?v=20260929-2';
   function fixLogo(){
     document.querySelectorAll('img').forEach(img=>{
       const src=(img.getAttribute('src')||'').toLowerCase();
       const alt=(img.getAttribute('alt')||'').toLowerCase();
-      if(src.includes('nsju-emblem') || alt.includes('національної школи суддів')){
+      if(src.includes('nsju-emblem') || src.includes('logo-fallback') || alt.includes('національної школи суддів')){
         if(img.getAttribute('src')!==LOGO) img.setAttribute('src',LOGO);
         img.style.display='block';
         img.style.objectFit='contain';
@@ -31,5 +31,5 @@
   document.addEventListener('DOMContentLoaded',run);
   const obs=new MutationObserver(()=>run());
   obs.observe(document.documentElement,{subtree:true,childList:true});
-  setInterval(run,1000);
+  setInterval(run,700);
 })();

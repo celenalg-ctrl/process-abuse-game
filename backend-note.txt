@@ -1,0 +1,1 @@
+Shared responses are stored in the separate Supabase project process-abuse-game. Frontend uses the game-api Edge Function.

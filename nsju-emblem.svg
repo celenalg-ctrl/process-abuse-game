@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 456 300" role="img" aria-labelledby="title desc">
   <title id="title">Національна школа суддів України</title>
-  <desc id="desc">Офіційна емблема Національної школи суддів України.</desc>
-  <rect width="512" height="512" fill="#173f68"/>
-  <image href="https://dn.nsj.gov.ua/pluginfile.php/1/theme_moove/logo/1755685362/logo1.png" x="0" y="0" width="512" height="512" preserveAspectRatio="xMidYMid meet"/>
+  <desc id="desc">Емблема Національної школи суддів України</desc>
+  <image href="nsju-emblem.png" x="0" y="0" width="456" height="300" preserveAspectRatio="xMidYMid meet"/>
 </svg>

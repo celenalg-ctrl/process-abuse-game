@@ -9,8 +9,16 @@
   <link rel="stylesheet" href="enhancements.css" />
   <style>
     .nsju-logo-wrap,.nsju-logo-wrap.compact,.login-brand .nsju-logo-wrap{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;overflow:visible!important}
-    .nsju-logo{filter:none!important;object-fit:contain!important}
-    .footer-brand img{background:transparent!important;border-radius:0!important;padding:0!important;filter:none!important}
+    .nsju-logo{filter:none!important;object-fit:contain!important;display:block!important;visibility:visible!important;opacity:1!important;min-width:88px!important;min-height:58px!important}
+    .login-brand .nsju-logo{min-width:128px!important;min-height:86px!important}
+    .footer-brand img{background:transparent!important;border-radius:0!important;padding:0!important;filter:none!important;display:block!important;min-width:86px!important;min-height:58px!important}
+    .final-scoreboard{margin-top:20px;text-align:center}
+    .final-score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}
+    .final-score-card{border:1px solid #ded6ca;border-radius:16px;padding:18px;background:linear-gradient(180deg,#fff,#f7f1e8)}
+    .final-score-card strong{display:block;color:#17324d;font-size:16px}
+    .final-score-card span{display:block;color:#7b2f3d;font-size:40px;font-weight:900;margin:7px 0 2px}
+    .final-score-card small{color:#6e7780}
+    @media(max-width:760px){.final-score-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -18,5 +26,6 @@
   <script src="data.js"></script>
   <script src="app.js"></script>
   <script src="enhancements.js"></script>
+  <script src="site-patches.js"></script>
 </body>
 </html>

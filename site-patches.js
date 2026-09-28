@@ -1,5 +1,5 @@
 (function(){
-  const LOGO='nsju-emblem.png';
+  const LOGO='nsju-emblem.png?v=20260928-3';
   function fixLogo(){
     document.querySelectorAll('img').forEach(img=>{
       const src=(img.getAttribute('src')||'').toLowerCase();
@@ -10,6 +10,8 @@
         img.style.objectFit='contain';
         img.style.visibility='visible';
         img.style.opacity='1';
+        img.style.width='auto';
+        img.style.maxWidth='100%';
       }
     });
   }
@@ -29,5 +31,5 @@
   document.addEventListener('DOMContentLoaded',run);
   const obs=new MutationObserver(()=>run());
   obs.observe(document.documentElement,{subtree:true,childList:true});
-  setInterval(run,1500);
+  setInterval(run,1000);
 })();

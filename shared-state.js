@@ -59,6 +59,8 @@
     }
 
     if(typeof state!=='undefined'){
+      state.answers={};
+      state.submitted={};
       D.teams.forEach(t=>{
         state.scores[t.id]=state.role==='trainer'?totalScore(t.id,false):totalScore(t.id,true);
       });
@@ -161,6 +163,13 @@
     if(old){if(old.outerHTML!==html) old.outerHTML=html;} else main.insertAdjacentHTML('beforeend',html);
   }
 
+  function injectResetControl(){
+    if(typeof state==='undefined'||state.role!=='trainer') return;
+    const main=document.querySelector('main.container');
+    if(!main||document.getElementById('trainer-reset-game')) return;
+    main.insertAdjacentHTML('beforeend',`<section class="card" id="trainer-reset-game" style="margin-top:20px"><div class="section-kicker">Нова гра</div><h3>Обнулити результати</h3><p class="small muted">Починає новий цикл гри: усі бали, опубліковані результати та відповіді команд очищаються, відкритим залишається лише калібрування.</p><button class="btn secondary" onclick="resetSharedGame()">Почати нову гру</button></section>`);
+  }
+
   function updateUi(){
     patchScoreInputs();
     injectTrainerLabels();
@@ -168,6 +177,7 @@
     hideOldTeamScoreCard();
     injectParticipantSummary();
     injectTrainerRoundControls();
+    injectResetControl();
   }
 
   async function refresh(forceRender=false){
@@ -218,6 +228,21 @@
 
   window.publishSharedFinal=async function(){
     try{await call('publish_final');await refresh(false);updateUi();}catch(e){alert('Не вдалося опублікувати фінальний рахунок: '+e.message);}
+  };
+
+  window.resetSharedGame=async function(){
+    if(!confirm('Почати нову гру? Усі поточні бали, відповіді команд і опубліковані результати будуть обнулені.')) return;
+    try{
+      await call('reset_game');
+      state.openedStage=0;
+      state.viewedStage=0;
+      state.answers={};
+      state.submitted={};
+      state.scores={A:0,B:0,C:0};
+      state.finalScoreboardVisible=false;
+      save();
+      await refresh(true);
+    }catch(e){alert('Не вдалося почати нову гру: '+e.message);}
   };
 
   window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,isFinalPublished:()=>!!remote.game?.final_published};

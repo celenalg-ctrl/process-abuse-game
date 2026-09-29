@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#17324d" />
   <title>Зловживання процесуальними правами | Суддівська симуляція</title>
-  <link rel="stylesheet" href="styles.css?v=20260929-5" />
-  <link rel="stylesheet" href="enhancements.css?v=20260929-5" />
+  <link rel="stylesheet" href="styles.css?v=20260929-6" />
+  <link rel="stylesheet" href="enhancements.css?v=20260929-6" />
   <style>
     .nsju-logo-wrap,.nsju-logo-wrap.compact,.login-brand .nsju-logo-wrap{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important;overflow:visible!important}
     .nsju-logo{filter:none!important;object-fit:contain!important;display:block!important;visibility:visible!important;opacity:1!important;width:76px!important;height:auto!important;min-width:76px!important}
@@ -18,30 +18,43 @@
     .identity .nsju-logo-wrap.compact{flex:0 0 72px!important;width:72px!important;max-width:72px!important}
     .identity .nsju-logo-wrap.compact .nsju-logo{width:72px!important;min-width:72px!important;max-width:72px!important}
     .footer-brand img{background:transparent!important;border-radius:0!important;padding:0!important;filter:none!important;display:block!important;width:82px!important;min-width:82px!important;height:auto!important;visibility:visible!important;opacity:1!important}
-    .final-scoreboard{margin-top:20px;text-align:center;background:linear-gradient(180deg,#17324d 0,#214b6d 100%);color:#fff;border:0!important}
-    .final-scoreboard h2{color:#fff;font-size:32px;margin:4px 0 6px}
-    .final-scoreboard .muted{color:#dce7ef!important}
-    .final-score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
-    .final-score-card{border:1px solid rgba(255,255,255,.32);border-radius:18px;padding:20px;background:#fff;color:#17324d;box-shadow:0 10px 24px rgba(0,0,0,.12)}
-    .final-score-card .team-badge{display:inline-block;margin-bottom:10px;background:#f5eee3;color:#7b2f3d;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:800}
-    .final-score-card strong{display:block;color:#17324d;font-size:18px}
-    .final-score-card span{display:block;color:#7b2f3d;font-size:48px;font-weight:900;margin:8px 0 2px}
-    .final-score-card small{color:#6e7780;font-size:13px}
+    .final-score-controls{margin-top:24px;text-align:center;padding:28px!important}
+    .final-live-scores{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}
+    .final-live-scores>div{background:#f7f1e8;border:1px solid #dfd3c2;border-radius:16px;padding:18px}
+    .final-live-scores strong{display:block;color:#17324d;font-size:17px;margin-bottom:8px}
+    .final-live-scores span{display:block;color:#7b2f3d;font-size:38px;font-weight:900}
+    .final-show-btn{font-size:18px;padding:14px 24px}
+    .final-score-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#17324d,#244f70);z-index:99999;display:none;align-items:center;justify-content:center;padding:40px}
+    .final-score-overlay.open{display:flex}
+    .final-close{position:absolute;top:22px;right:28px;border:0;background:rgba(255,255,255,.12);color:#fff;width:48px;height:48px;border-radius:50%;font-size:30px;cursor:pointer}
+    .final-score-board{width:min(1100px,94vw);text-align:center;color:#fff}
+    .final-board-title{font-size:46px;font-weight:900;letter-spacing:.04em}
+    .final-board-subtitle{font-size:22px;color:#d8e5ee;margin:8px 0 34px}
+    .final-board-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;align-items:end}
+    .final-board-card{background:#fff;color:#17324d;border-radius:24px;padding:26px 22px;box-shadow:0 16px 40px rgba(0,0,0,.24);position:relative}
+    .final-board-card.place-1{transform:translateY(-18px);border:4px solid #d6a744}
+    .final-place{position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:#7b2f3d;color:white;border-radius:999px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px}
+    .final-team{font-size:22px;font-weight:800;margin-top:12px}
+    .final-points{font-size:72px;line-height:1;font-weight:900;color:#7b2f3d;margin:18px 0 4px}
+    .final-points-label{font-size:16px;color:#6e7780}
     @media(max-width:760px){
-      .final-score-grid{grid-template-columns:1fr}
       .login-brand{gap:16px!important}
       .login-brand .nsju-logo-wrap{flex-basis:92px!important;width:92px!important;max-width:92px!important}
       .login-brand .nsju-logo{width:92px!important;min-width:92px!important;max-width:92px!important}
       .identity .nsju-logo-wrap.compact{flex-basis:58px!important;width:58px!important;max-width:58px!important}
       .identity .nsju-logo-wrap.compact .nsju-logo{width:58px!important;min-width:58px!important;max-width:58px!important}
+      .final-live-scores,.final-board-grid{grid-template-columns:1fr}
+      .final-board-card.place-1{transform:none}
+      .final-board-title{font-size:32px}
     }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  <script src="data.js?v=20260929-5"></script>
-  <script src="app.js?v=20260929-5"></script>
-  <script src="enhancements.js?v=20260929-5"></script>
-  <script src="site-patches.js?v=20260929-5"></script>
+  <script src="data.js?v=20260929-6"></script>
+  <script src="app.js?v=20260929-6"></script>
+  <script src="enhancements.js?v=20260929-6"></script>
+  <script src="site-patches.js?v=20260929-6"></script>
+  <script src="final-score.js?v=20260929-6"></script>
 </body>
 </html>

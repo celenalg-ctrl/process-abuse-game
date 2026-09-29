@@ -64,7 +64,7 @@
   }
 
   function modalHtml(){
-    return `<div class="overlay" id="trainer-editor-modal"><div class="modal editor-modal"><div class="modal-bar"></div><div class="modal-content"><div class="modal-head"><div><div class="section-kicker">Редактор тренера</div><h2>Зміст суддівської симуляції</h2><p class="muted">Зміни зберігаються у Supabase і стають доступними всім командам без нового deploy.</p></div><button class="btn secondary" onclick="closeTrainerEditor()">Закрити</button></div><div class="editor-actions"><button class="btn burgundy" onclick="saveTrainerEditor()">Зберегти зміни</button><button class="btn secondary" onclick="resetTrainerEditorContent()">Повернути версію з коду</button></div><div class="editor-general"><h3>Загальні дані справи</h3>${field('Назва гри',draft.title,'title')}${field('Підзаголовок',draft.subtitle,'subtitle')}${field('Номер справи',draft.caseNo,'caseNo')}${field('Сторони',draft.parties,'parties')}${field('Предмет спору',draft.subject,'subject',true)}</div><div class="editor-stages"><h3>Етапи, фабули, завдання та документи</h3>${(draft.stages||[]).map(stageHtml).join('')}</div><div class="editor-actions bottom"><button class="btn burgundy" onclick="saveTrainerEditor()">Зберегти зміни</button></div></div></div></div>`;
+    return `<div class="overlay" id="trainer-editor-modal"><div class="modal editor-modal"><div class="modal-bar"></div><div class="modal-content"><div class="modal-head"><div><div class="section-kicker">Редактор тренера</div><h2>Зміст суддівської симуляції</h2></div><button class="btn secondary" onclick="closeTrainerEditor()">Закрити</button></div><div class="editor-actions"><button class="btn burgundy" onclick="saveTrainerEditor()">Зберегти зміни</button><button class="btn secondary" onclick="resetTrainerEditorContent()">Відновити базовий зміст</button></div><div class="editor-general"><h3>Загальні дані справи</h3>${field('Назва гри',draft.title,'title')}${field('Підзаголовок',draft.subtitle,'subtitle')}${field('Номер справи',draft.caseNo,'caseNo')}${field('Сторони',draft.parties,'parties')}${field('Предмет спору',draft.subject,'subject',true)}</div><div class="editor-stages"><h3>Етапи, фабули, завдання та документи</h3>${(draft.stages||[]).map(stageHtml).join('')}</div><div class="editor-actions bottom"><button class="btn burgundy" onclick="saveTrainerEditor()">Зберегти зміни</button></div></div></div></div>`;
   }
 
   function setPath(obj,path,value){
@@ -129,19 +129,19 @@
       applyContent(draft);
       document.getElementById('trainer-editor-modal')?.remove();
       if(typeof render==='function') render();
-      alert('Зміни збережено. Команди отримають оновлений зміст автоматично.');
+      alert('Зміни збережено.');
     }catch(e){alert('Не вдалося зберегти зміни: '+e.message)}
   };
 
   window.resetTrainerEditorContent=async()=>{
-    if(!confirm('Повернути зміст до версії, яка зараз записана у файлі data.js?')) return;
+    if(!confirm('Відновити базовий зміст симуляції?')) return;
     try{
       await call('reset_content');
       await call('save_content',{content:ORIGINAL});
       applyContent(ORIGINAL);
       draft=clone(ORIGINAL);
       rerenderEditor();
-      alert('Зміст повернуто до базової версії.');
+      alert('Базовий зміст відновлено.');
     }catch(e){alert('Не вдалося відновити зміст: '+e.message)}
   };
 

@@ -23,7 +23,7 @@
   }
 
   function activeTeams(){
-    const count=Math.max(2,Math.min(D.teams.length,Number(remote.game?.active_team_count||D.teams.length)));
+    const count=Math.max(2,Math.min(D.teams.length,Number(remote.game?.active_team_count||state?.activeTeamCount||D.teams.length)));
     return D.teams.slice(0,count);
   }
 
@@ -60,6 +60,7 @@
 
     if(remote.game&&typeof state!=='undefined'){
       const opened=Number(remote.game.opened_stage||0);
+      state.activeTeamCount=Number(remote.game.active_team_count||D.teams.length);
       state.openedStage=opened;
       if(state.viewedStage>opened) state.viewedStage=opened;
     }
@@ -174,7 +175,9 @@
     const main=document.querySelector('main.container');
     if(!main||document.getElementById('trainer-reset-game')) return;
     const selected=activeTeams().length;
-    main.insertAdjacentHTML('beforeend',`<section class="card" id="trainer-reset-game" style="margin-top:20px"><div class="section-kicker">Нова гра</div><h3>Почати нову симуляцію</h3><p class="small muted">Перед початком оберіть кількість команд. На табло, в оцінюванні та підсумках відображатимуться лише активні команди.</p><div class="field" style="max-width:260px"><label for="active-team-count">Кількість команд</label><select id="active-team-count" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff"><option value="2" ${selected===2?'selected':''}>2 команди</option><option value="3" ${selected===3?'selected':''}>3 команди</option><option value="4" ${selected===4?'selected':''}>4 команди</option></select></div><button class="btn secondary" onclick="resetSharedGame()">Почати нову гру</button></section>`);
+    const target=main.querySelector('.trainer-grid');
+    const html=`<section class="card" id="trainer-reset-game" style="margin-top:20px"><div class="section-kicker">Нова гра</div><h3>Почати нову симуляцію</h3><p class="small muted">Перед початком оберіть кількість команд. На табло, в оцінюванні та підсумках відображатимуться лише активні команди.</p><div class="field" style="max-width:260px"><label for="active-team-count">Кількість команд</label><select id="active-team-count" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff"><option value="2" ${selected===2?'selected':''}>2 команди</option><option value="3" ${selected===3?'selected':''}>3 команди</option><option value="4" ${selected===4?'selected':''}>4 команди</option></select></div><button class="btn secondary" onclick="resetSharedGame()">Почати нову гру</button></section>`;
+    if(target) target.insertAdjacentHTML('afterend',html); else main.insertAdjacentHTML('afterbegin',html);
   }
 
   function updateUi(){
@@ -196,7 +199,12 @@
       applyRemote(data);
       if(forceRender||before!==state.openedStage) render();
       setTimeout(updateUi,0);
-    }catch(e){console.warn('Shared game sync:',e.message);}
+    }catch(e){
+      if(state?.role==='team'&&String(e.message).includes('не бере участі')){
+        alert(e.message);
+        state.role=null; state.teamId=null; save(); render();
+      }else console.warn('Shared game sync:',e.message);
+    }
     finally{refreshing=false;}
   }
 

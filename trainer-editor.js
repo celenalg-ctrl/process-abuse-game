@@ -6,9 +6,7 @@
   let loading=false;
 
   function accessCode(){
-    if(typeof state==='undefined'||!state.role) return null;
-    if(state.role==='trainer') return D.trainerCode;
-    return D.teams.find(t=>t.id===state.teamId)?.code||null;
+    return sessionStorage.getItem('processAbuseAccessCode')||null;
   }
 
   async function call(action,payload={}){

@@ -13,13 +13,37 @@ function isFinalStage(s){return s.id===D.stages[D.stages.length-1].id}
 const NSJU_LOGO='/nsju-emblem.png?v=20260929-1';
 function login(){
   let role='team';
-  el('app').innerHTML=`<div class="login-wrap"><div class="login-card"><div class="login-top"><div class="login-brand"><div class="nsju-logo-wrap"><img class="nsju-logo" src="${NSJU_LOGO}" alt="Емблема Національної школи суддів України"></div><div><div class="eyebrow" style="color:#e6c89a;margin-bottom:6px">Суддівська симуляція</div><h1>${D.title}</h1><p>${D.subtitle}</p></div></div></div><div class="login-body"><div class="role-tabs"><button id="rt" class="role-tab active">Команда</button><button id="rr" class="role-tab">Тренер</button></div><div class="field"><label id="codeLabel">Код команди</label><input id="loginCode" placeholder="Наприклад TEAM-A" /></div><button id="loginBtn" class="btn burgundy" style="width:100%">Увійти до симуляції</button><div class="demo-note small">Демо-коди: TEAM-A, TEAM-B, TEAM-C, TEAM-G. Код тренера: TRAINER-2026.</div></div></div></div>`;
+  el('app').innerHTML=`<div class="login-wrap"><div class="login-card"><div class="login-top"><div class="login-brand"><div class="nsju-logo-wrap"><img class="nsju-logo" src="${NSJU_LOGO}" alt="Емблема Національної школи суддів України"></div><div><div class="eyebrow" style="color:#e6c89a;margin-bottom:6px">Суддівська симуляція</div><h1>${D.title}</h1><p>${D.subtitle}</p></div></div></div><div class="login-body"><div class="role-tabs"><button id="rt" class="role-tab active">Команда</button><button id="rr" class="role-tab">Тренер</button></div><div class="field"><label id="codeLabel">Код команди</label><input id="loginCode" placeholder="Введіть код, наданий тренером" autocomplete="off" /></div><button id="loginBtn" class="btn burgundy" style="width:100%">Увійти до симуляції</button></div></div></div>`;
   el('rt').onclick=()=>{role='team';el('rt').classList.add('active');el('rr').classList.remove('active');el('codeLabel').textContent='Код команди'};
   el('rr').onclick=()=>{role='trainer';el('rr').classList.add('active');el('rt').classList.remove('active');el('codeLabel').textContent='Код тренера'};
-  el('loginBtn').onclick=()=>{const c=el('loginCode').value.trim();if(role==='trainer'&&c===D.trainerCode){state.role='trainer';state.viewedStage=state.openedStage;save();render();return}const t=D.teams.find(x=>x.code===c);if(role==='team'&&t){state.role='team';state.teamId=t.id;state.viewedStage=Math.min(state.viewedStage,state.openedStage);save();render();return}alert('Невірний код входу')};
+  el('loginBtn').onclick=async()=>{
+    const btn=el('loginBtn');
+    const access=el('loginCode').value.trim();
+    if(!access) return alert('Введіть код доступу');
+    btn.disabled=true;
+    try{
+      if(typeof window.validateGameAccess!=='function') throw new Error('Сервіс авторизації ще не готовий. Оновіть сторінку.');
+      const auth=await window.validateGameAccess(access);
+      if(role==='trainer'&&auth.role!=='trainer') throw new Error('Цей код не є кодом тренера');
+      if(role==='team'&&auth.role!=='team') throw new Error('Цей код не є кодом команди');
+      window.storeGameAccessCode?.(access);
+      state.role=auth.role;
+      state.teamId=auth.role==='team'?auth.teamId:null;
+      state.openedStage=Number(auth.game?.opened_stage||0);
+      state.activeTeamCount=Number(auth.game?.active_team_count||D.teams.length);
+      state.viewedStage=auth.role==='trainer'?state.openedStage:Math.min(state.viewedStage,state.openedStage);
+      save();
+      render();
+      setTimeout(()=>window.GAME_SHARED?.refresh?.(true),0);
+    }catch(e){
+      alert(e.message||'Невірний код входу');
+    }finally{
+      btn.disabled=false;
+    }
+  };
 }
 function topbar(){const team=D.teams.find(t=>t.id===state.teamId);return `<header class="masthead"><div class="masthead-inner"><div class="identity"><div class="nsju-logo-wrap compact"><img class="nsju-logo" src="${NSJU_LOGO}" alt="Емблема Національної школи суддів України"></div><div class="brand">${D.title}<small>${D.subtitle}</small></div></div><div class="top-actions"><span class="pill">${state.role==='trainer'?'Панель тренера':team?.name||''}</span><button class="btn secondary small-btn" onclick="logout()">Вийти</button></div></div></header>`}
-window.logout=()=>{state.role=null;state.teamId=null;save();render()}
+window.logout=()=>{window.clearGameAccessCode?.();state.role=null;state.teamId=null;save();render()}
 window.goStage=id=>{const s=stageById(Number(id));if(!stageUnlocked(s))return;state.viewedStage=s.id;save();render()}
 function stageNav(){return `<div class="stage-shell"><div class="timeline">${D.stages.map(s=>`<button class="stage-chip ${s.id===state.viewedStage?'active':''} ${stageUnlocked(s)?'':'locked'}" ${stageUnlocked(s)?`onclick="goStage(${s.id})"`:'disabled'}><span class="stage-state">${stageUnlocked(s)?(s.id===state.openedStage?'поточний':'відкрито'):'закрито'}</span><strong>${s.kind}</strong><span>${s.title}</span></button>`).join('')}</div></div>`}
 function abuseMap(s){return `<div class="abuse-map">${D.abuseTypes.map(x=>`<span class="abuse-chip ${s.abuse.includes(x)?'active':''}">${escapeHtml(x)}</span>`).join('')}</div>`}
@@ -39,5 +63,5 @@ function trainerView(){const s=viewed();const total=D.teams.length;const submitt
 window.openNext=()=>{if(state.openedStage<D.stages.length-1){state.openedStage++;state.viewedStage=state.openedStage;save();render()}}
 window.setScore=id=>{state.scores[id]=Number(el(`score-${id}`).value)||0;save();render()}
 window.resetDemo=()=>{if(confirm('Скинути локальні дані гри?')){localStorage.removeItem(key);location.reload()}}
-function render(){if(!state.role)return login();el('app').innerHTML=state.role==='trainer'?trainerView():teamView()}
+function render(){if(state.role&&!sessionStorage.getItem('processAbuseAccessCode')){state.role=null;state.teamId=null;save();}if(!state.role)return login();el('app').innerHTML=state.role==='trainer'?trainerView():teamView()}
 render();

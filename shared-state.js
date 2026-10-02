@@ -199,6 +199,9 @@
       const before=state.openedStage;
       const data=await call('get_state');
       applyRemote(data);
+      if(before!==state.openedStage && typeof window.syncGameContent==='function'){
+        await window.syncGameContent(true);
+      }
       if(forceRender||before!==state.openedStage) render();
       setTimeout(updateUi,0);
     }catch(e){

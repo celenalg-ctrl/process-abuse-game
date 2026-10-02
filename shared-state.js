@@ -3,11 +3,26 @@
   const remote={game:null,scores:[],submissions:[]};
   let refreshing=false;
 
+  const ACCESS_KEY='processAbuseAccessCode';
+
   function code(){
-    if(typeof state==='undefined'||!state.role) return null;
-    if(state.role==='trainer') return D.trainerCode;
-    return D.teams.find(x=>x.id===state.teamId)?.code||null;
+    return sessionStorage.getItem(ACCESS_KEY)||null;
   }
+
+  window.validateGameAccess=async function(inputCode){
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get_state',code:String(inputCode||'').trim()})});
+    const j=await r.json().catch(()=>({error:'Некоректна відповідь сервера'}));
+    if(!r.ok||j.error) throw new Error(j.error||'Помилка сервера');
+    return j;
+  };
+
+  window.storeGameAccessCode=function(inputCode){
+    sessionStorage.setItem(ACCESS_KEY,String(inputCode||'').trim());
+  };
+
+  window.clearGameAccessCode=function(){
+    sessionStorage.removeItem(ACCESS_KEY);
+  };
 
   async function call(action,payload={}){
     const c=code();
@@ -104,18 +119,6 @@
     });
   }
 
-  function unlockTeamAnswerForm(){
-    if(typeof state==='undefined'||state.role!=='team') return;
-    const task=document.querySelector('.task-box');
-    if(!task) return;
-    task.querySelectorAll('textarea,input[type="radio"],button').forEach(node=>node.disabled=false);
-    const submitBtn=task.querySelector('button.btn.burgundy');
-    const key=`${state.teamId}-${state.viewedStage}`;
-    if(submitBtn&&state.submitted[key]) submitBtn.textContent='Оновити відповідь';
-    const status=task.querySelector('.status.ok');
-    if(status) status.textContent='Відповідь збережено. Її можна відредагувати та подати повторно.';
-  }
-
   function hideOldTeamScoreCard(){
     if(typeof state==='undefined'||state.role!=='team') return;
     document.querySelectorAll('.layout aside.stack .card').forEach(card=>{
@@ -183,7 +186,6 @@
   function updateUi(){
     patchScoreInputs();
     injectTrainerLabels();
-    unlockTeamAnswerForm();
     hideOldTeamScoreCard();
     injectParticipantSummary();
     injectTrainerRoundControls();

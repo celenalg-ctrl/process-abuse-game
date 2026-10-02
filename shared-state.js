@@ -22,6 +22,11 @@
     return Number(remote.game?.opened_stage ?? state?.openedStage ?? 0);
   }
 
+  function activeTeams(){
+    const count=Math.max(2,Math.min(D.teams.length,Number(remote.game?.active_team_count||D.teams.length)));
+    return D.teams.slice(0,count);
+  }
+
   function scoreRow(teamId,stageId){
     return remote.scores.find(x=>x.team_id===teamId&&Number(x.stage_id)===Number(stageId))||null;
   }
@@ -43,8 +48,9 @@
 
   function isRoundPublished(stageId){
     if(Number(stageId)>openedStage()) return false;
-    const rows=remote.scores.filter(x=>Number(x.stage_id)===Number(stageId));
-    return rows.length===D.teams.length&&rows.every(x=>x.published===true);
+    const ids=new Set(activeTeams().map(t=>t.id));
+    const rows=remote.scores.filter(x=>Number(x.stage_id)===Number(stageId)&&ids.has(x.team_id));
+    return rows.length===activeTeams().length&&rows.every(x=>x.published===true);
   }
 
   function applyRemote(data){
@@ -61,7 +67,7 @@
     if(typeof state!=='undefined'){
       state.answers={};
       state.submitted={};
-      D.teams.forEach(t=>{
+      activeTeams().forEach(t=>{
         state.scores[t.id]=state.role==='trainer'?totalScore(t.id,false):totalScore(t.id,true);
       });
       remote.submissions.forEach(s=>{
@@ -75,7 +81,7 @@
 
   function patchScoreInputs(){
     if(typeof state==='undefined'||state.role!=='trainer') return;
-    D.teams.forEach(t=>{
+    activeTeams().forEach(t=>{
       const input=document.getElementById(`score-${t.id}`);
       if(!input||document.activeElement===input) return;
       const value=roundScore(t.id,state.viewedStage,false);
@@ -124,13 +130,13 @@
     const finalPublished=!!remote.game?.final_published;
 
     if(finalPublished){
-      const sorted=D.teams.map(t=>({team:t,total:totalScore(t.id,true)})).sort((a,b)=>b.total-a.total);
+      const sorted=activeTeams().map(t=>({team:t,total:totalScore(t.id,true)})).sort((a,b)=>b.total-a.total);
       return `<div class="card" id="shared-scoreboard-card"><div class="section-kicker">Підсумок</div><h3>Фінальний рахунок</h3><div style="display:grid;gap:8px;margin-top:12px">${sorted.map((x,i)=>`<div style="display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#faf7f1"><strong style="color:var(--burgundy)">${i+1}</strong><span style="font-weight:800">${escapeHtml(x.team.name)}</span><strong style="font-size:20px;color:var(--burgundy)">${x.total}</strong></div>`).join('')}</div></div>`;
     }
 
     if(!published) return '';
 
-    const rows=D.teams.map(t=>({team:t,round:roundScore(t.id,stageId,true),total:totalScore(t.id,true)}));
+    const rows=activeTeams().map(t=>({team:t,round:roundScore(t.id,stageId,true),total:totalScore(t.id,true)}));
     return `<div class="card" id="shared-scoreboard-card"><div class="section-kicker">Проміжний рахунок</div><h3>Результат цього раунду</h3><div style="display:grid;gap:8px;margin-top:12px">${rows.map(x=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#faf7f1"><strong>${escapeHtml(x.team.name)}</strong><span style="font-weight:900;color:var(--burgundy)">${x.round}</span></div>`).join('')}</div><div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><div class="section-kicker">Загалом після опублікованих раундів</div>${rows.map(x=>`<div style="display:flex;justify-content:space-between;margin-top:7px"><span>${escapeHtml(x.team.name)}</span><strong>${x.total}</strong></div>`).join('')}</div></div>`;
   }
 
@@ -155,10 +161,10 @@
     if(!main) return;
     const old=document.getElementById('trainer-round-publish-card');
     const stageId=state.viewedStage;
-    const rows=D.teams.map(t=>({team:t,score:roundScore(t.id,stageId,false)}));
+    const rows=activeTeams().map(t=>({team:t,score:roundScore(t.id,stageId,false)}));
     const allScored=rows.every(x=>x.score!==null);
     const published=isRoundPublished(stageId);
-    const totals=D.teams.map(t=>({team:t,total:totalScore(t.id,false)}));
+    const totals=activeTeams().map(t=>({team:t,total:totalScore(t.id,false)}));
     const html=`<section class="card" id="trainer-round-publish-card" style="margin-top:20px"><div class="section-kicker">Оцінювання раунду</div><h2>${escapeHtml(stageById(stageId).kind)}: результати команд</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0">${rows.map(x=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px;background:#faf7f1"><strong>${escapeHtml(x.team.name)}</strong><div style="font-size:28px;font-weight:900;color:var(--burgundy);margin-top:6px">${x.score===null?'—':x.score}</div></div>`).join('')}</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn burgundy" ${allScored?'':'disabled'} onclick="publishCurrentRound()">${published?'Опубліковано для команд':'Опублікувати результат раунду'}</button>${published?'<button class="btn secondary" onclick="unpublishCurrentRound()">Зняти з публікації</button>':''}<span class="small muted">${allScored?'Усі команди оцінені.':'Спочатку виставте бали всім командам.'}</span></div><div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><div class="section-kicker">Поточна сума тренера</div>${totals.map(x=>`<div style="display:flex;justify-content:space-between;margin-top:6px"><span>${escapeHtml(x.team.name)}</span><strong>${x.total}</strong></div>`).join('')}</div>${stageId===D.stages[D.stages.length-1].id?`<div style="margin-top:18px"><button class="btn burgundy" ${published?'':'disabled'} onclick="publishSharedFinal()">Опублікувати фінальний рахунок</button></div>`:''}</section>`;
     if(old){if(old.outerHTML!==html) old.outerHTML=html;} else main.insertAdjacentHTML('beforeend',html);
   }
@@ -167,7 +173,8 @@
     if(typeof state==='undefined'||state.role!=='trainer') return;
     const main=document.querySelector('main.container');
     if(!main||document.getElementById('trainer-reset-game')) return;
-    main.insertAdjacentHTML('beforeend',`<section class="card" id="trainer-reset-game" style="margin-top:20px"><div class="section-kicker">Нова гра</div><h3>Обнулити результати</h3><p class="small muted">Починає новий цикл гри: усі бали, опубліковані результати та відповіді команд очищаються, відкритим залишається лише калібрування.</p><button class="btn secondary" onclick="resetSharedGame()">Почати нову гру</button></section>`);
+    const selected=activeTeams().length;
+    main.insertAdjacentHTML('beforeend',`<section class="card" id="trainer-reset-game" style="margin-top:20px"><div class="section-kicker">Нова гра</div><h3>Почати нову симуляцію</h3><p class="small muted">Перед початком оберіть кількість команд. На табло, в оцінюванні та підсумках відображатимуться лише активні команди.</p><div class="field" style="max-width:260px"><label for="active-team-count">Кількість команд</label><select id="active-team-count" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff"><option value="2" ${selected===2?'selected':''}>2 команди</option><option value="3" ${selected===3?'selected':''}>3 команди</option><option value="4" ${selected===4?'selected':''}>4 команди</option></select></div><button class="btn secondary" onclick="resetSharedGame()">Почати нову гру</button></section>`);
   }
 
   function updateUi(){
@@ -233,7 +240,8 @@
   window.resetSharedGame=async function(){
     if(!confirm('Почати нову гру? Усі поточні бали, відповіді команд і опубліковані результати будуть обнулені.')) return;
     try{
-      await call('reset_game');
+      const teamCount=Number(document.getElementById('active-team-count')?.value||activeTeams().length);
+      await call('reset_game',{teamCount});
       state.openedStage=0;
       state.viewedStage=0;
       state.answers={};
@@ -245,7 +253,7 @@
     }catch(e){alert('Не вдалося почати нову гру: '+e.message);}
   };
 
-  window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,isFinalPublished:()=>!!remote.game?.final_published};
+  window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,activeTeams,isFinalPublished:()=>!!remote.game?.final_published};
   document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>refresh(true),300));
   setInterval(()=>refresh(false),2500);
   setInterval(updateUi,1200);

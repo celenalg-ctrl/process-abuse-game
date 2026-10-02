@@ -135,9 +135,11 @@
     if(!confirm('Відновити базовий зміст симуляції?')) return;
     try{
       await call('reset_content');
-      await call('save_content',{content:ORIGINAL});
-      applyContent(ORIGINAL);
-      draft=clone(ORIGINAL);
+      const data=await call('get_content');
+      if(!data.content) throw new Error('Базовий зміст не знайдено');
+      applyContent(data.content);
+      draft=clone(data.content);
+      lastRemoteStamp=data.updated_at||Date.now();
       rerenderEditor();
       alert('Базовий зміст відновлено.');
     }catch(e){alert('Не вдалося відновити зміст: '+e.message)}
@@ -162,6 +164,8 @@
     s.textContent=`.editor-modal{width:min(1180px,96vw);max-height:92vh;overflow:auto}.editor-actions{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 18px}.editor-actions.bottom{justify-content:flex-end;margin-top:22px}.editor-general,.editor-stage{border:1px solid var(--line);border-radius:16px;background:#fff}.editor-general{padding:18px;margin-bottom:18px}.editor-stage{margin:12px 0;overflow:hidden}.editor-stage>summary{display:flex;justify-content:space-between;gap:14px;cursor:pointer;padding:16px 18px;background:#f7f1e8;color:#17324d}.editor-stage-body{padding:18px}.editor-field{display:block;margin:12px 0}.editor-field>span{display:block;font-weight:800;color:#17324d;margin-bottom:6px}.editor-field input,.editor-field textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:#fff}.editor-field textarea{min-height:105px;resize:vertical}.editor-section-title{margin:22px 0 8px;font-weight:900;color:var(--burgundy);text-transform:uppercase;letter-spacing:.04em}.editor-subcard{padding:14px;border:1px solid var(--line);border-radius:12px;background:#faf7f1;margin:10px 0}.editor-subhead{display:flex;justify-content:space-between;gap:10px;align-items:center}`;
     document.head.appendChild(s);
   }
+
+  window.syncGameContent=syncContent;
 
   document.addEventListener('DOMContentLoaded',()=>{
     injectStyles();

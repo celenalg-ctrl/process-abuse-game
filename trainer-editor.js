@@ -37,8 +37,7 @@
           if(typeof render==='function'&&!document.getElementById('trainer-editor-modal')) render();
         }
       }else if(state.role==='trainer'){
-        await call('save_content',{content:ORIGINAL});
-        lastRemoteStamp=Date.now();
+        console.warn('Content editor sync: зміст симуляції відсутній на сервері');
       }
     }catch(e){ console.warn('Content editor sync:',e.message); }
     finally{ loading=false; }

@@ -6,7 +6,8 @@
   }
 
   function totals(){
-    return window.GAME_DATA.teams.map(t=>({id:t.id,name:t.name,score:window.GAME_SHARED?window.GAME_SHARED.totalScore(t.id):Number((state.scores||{})[t.id]||0)}));
+    const teams=window.GAME_SHARED?.activeTeams?.()||window.GAME_DATA.teams;
+    return teams.map(t=>({id:t.id,name:t.name,score:window.GAME_SHARED?window.GAME_SHARED.totalScore(t.id):Number((state.scores||{})[t.id]||0)}));
   }
 
   function ensureFinalUI(){

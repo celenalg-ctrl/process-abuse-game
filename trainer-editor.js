@@ -55,9 +55,9 @@
 
   function stageHtml(s,i){
     const docs=(s.docs||[]).map((d,j)=>`<div class="editor-subcard"><div class="editor-subhead"><strong>Документ ${j+1}</strong><button type="button" class="btn secondary small-btn" data-remove-doc="${i}:${j}">Видалити</button></div>${field('Назва документа',d.title,`stages.${i}.docs.${j}.title`)}${field('Мета / короткий опис',d.meta,`stages.${i}.docs.${j}.meta`)}${field('Текст документа',d.body,`stages.${i}.docs.${j}.body`,true)}</div>`).join('');
-    const asym=['A','B','C'].map(team=>{
-      const a=s.asymmetric?.[team]||{title:'',body:''};
-      return `<div class="editor-subcard"><strong>Додатковий факт, команда ${team}</strong>${field('Заголовок',a.title,`stages.${i}.asymmetric.${team}.title`)}${field('Текст',a.body,`stages.${i}.asymmetric.${team}.body`,true)}</div>`;
+    const asym=(draft.teams||[]).map(team=>{
+      const a=s.asymmetric?.[team.id]||{title:'',body:''};
+      return `<div class="editor-subcard"><strong>Додатковий факт, ${esc(team.name||team.id)}</strong>${field('Заголовок',a.title,`stages.${i}.asymmetric.${team.id}.title`)}${field('Текст',a.body,`stages.${i}.asymmetric.${team.id}.body`,true)}</div>`;
     }).join('');
     const options=(s.task?.options||[]).join('\n');
     return `<details class="editor-stage" ${i===0?'open':''}><summary><strong>${esc(s.kind)}. ${esc(s.title)}</strong><span>${esc(s.time||'')}</span></summary><div class="editor-stage-body">${field('Назва етапу',s.kind,`stages.${i}.kind`)}${field('Час',s.time,`stages.${i}.time`)}${field('Заголовок',s.title,`stages.${i}.title`)}${field('Міні-лекція',s.lecture||'',`stages.${i}.lecture`)}${field('Вступ / фабула етапу',s.intro,`stages.${i}.intro`,true)}<div class="editor-section-title">Завдання</div>${field('Назва завдання',s.task?.title||'',`stages.${i}.task.title`)}${field('Формулювання завдання',s.task?.prompt||'',`stages.${i}.task.prompt`,true)}${s.task?.type==='choice'?field('Варіанти відповіді, кожен з нового рядка',options,`stages.${i}.task.options_text`,true):''}<div class="editor-section-title">Документи</div>${docs}<button type="button" class="btn secondary" data-add-doc="${i}">Додати документ</button><div class="editor-section-title">Додаткові факти для команд</div>${asym}</div></details>`;

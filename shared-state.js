@@ -3,6 +3,11 @@
   const remote={game:null,scores:[],submissions:[],timers:[]};
   let refreshing=false;
   let serverOffsetMs=0;
+  let audioCtx=null;
+  let audioUnlocked=false;
+  let audioStage=null;
+  let lastTickSecond=null;
+  let previousTimerDelta=null;
 
   const ACCESS_KEY='processAbuseAccessCode';
 
@@ -146,6 +151,64 @@
     return {elapsed,late,onTime:late===0,submittedAt:submission.submitted_at};
   }
 
+  function unlockTimerAudio(){
+    if(audioUnlocked) return;
+    try{
+      const Ctx=window.AudioContext||window.webkitAudioContext;
+      if(!Ctx) return;
+      audioCtx=audioCtx||new Ctx();
+      if(audioCtx.state==='suspended') audioCtx.resume();
+      audioUnlocked=true;
+    }catch(e){}
+  }
+
+  function playTone(freq,duration=0.08,volume=0.05,type='square'){
+    if(!audioUnlocked||!audioCtx) return;
+    try{
+      const osc=audioCtx.createOscillator();
+      const gain=audioCtx.createGain();
+      osc.type=type;
+      osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
+      gain.gain.setValueAtTime(volume,audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime+duration);
+    }catch(e){}
+  }
+
+  function playTick(){
+    playTone(1100,0.045,0.035,'square');
+  }
+
+  function playTimeUpSignal(){
+    playTone(660,0.14,0.06,'sine');
+    setTimeout(()=>playTone(880,0.22,0.07,'sine'),150);
+  }
+
+  function timerAudioPulse(){
+    if(typeof state==='undefined'||state.role!=='team'||Number(state.viewedStage)===0) return;
+    if(submissionRow(state.teamId,state.viewedStage)) return;
+    const ts=timerState(state.viewedStage);
+    if(!ts) return;
+    if(audioStage!==state.viewedStage){
+      audioStage=state.viewedStage;
+      lastTickSecond=null;
+      previousTimerDelta=ts.delta;
+      return;
+    }
+    const remaining=Math.max(0,ts.delta);
+    if(remaining>=1&&remaining<=10&&lastTickSecond!==remaining){
+      playTick();
+      lastTickSecond=remaining;
+    }
+    if(previousTimerDelta!==null&&previousTimerDelta>0&&ts.delta<=0){
+      playTimeUpSignal();
+    }
+    previousTimerDelta=ts.delta;
+  }
+
   function injectTeamTimer(){
     if(typeof state==='undefined'||state.role!=='team'||Number(state.viewedStage)===0) return;
     const task=document.querySelector('.task-box');
@@ -171,10 +234,15 @@
       box.innerHTML=`<div><div class="section-kicker">Час раунду</div><div style="font-weight:900;font-size:20px">${formatClockSeconds(timing.elapsed)}</div><div class="small muted">від старту до надсилання · ліміт ${total} хв</div></div><div style="text-align:right">${status}</div>`;
       return;
     }
-    const value=ts.expired?`+${formatClockSeconds(-ts.delta)}`:formatClockSeconds(ts.delta);
-    const label=ts.expired?'Час завершено':'Залишилось';
+    const overtimeSeconds=ts.expired?Math.min(300,Math.max(0,-ts.delta)):0;
+    const overtimeStopped=ts.expired&&(-ts.delta)>=300;
+    const value=ts.expired?`+${formatClockSeconds(overtimeSeconds)}`:formatClockSeconds(ts.delta);
+    const label=overtimeStopped?'Облік часу зупинено':(ts.expired?'Час завершено':'Залишилось');
     const accent=ts.expired?'var(--burgundy)':(ts.delta<=120?'#9a5b13':'#17324d');
-    box.innerHTML=`<div><div class="section-kicker">${label}</div><div style="font-size:30px;font-weight:900;color:${accent};font-variant-numeric:tabular-nums">${value}</div></div><div class="small muted" style="max-width:250px">${ts.expired?'Відповідь усе ще можна надіслати. Перевищення часу буде зафіксовано.':`Ліміт раунду: ${total} хв. Таймер спільний для всіх команд.`}</div>`;
+    const note=overtimeStopped
+      ? 'Минуло 5 хвилин понад ліміт. Відповідь усе ще можна надіслати, але подальший час не враховується.'
+      : (ts.expired?'Відповідь усе ще можна надіслати. Перевищення часу фіксується максимум до +05:00.':`Ліміт раунду: ${total} хв. Таймер спільний для всіх команд.`);
+    box.innerHTML=`<div><div class="section-kicker">${label}</div><div style="font-size:30px;font-weight:900;color:${accent};font-variant-numeric:tabular-nums">${value}</div></div><div class="small muted" style="max-width:280px">${note}</div>`;
   }
 
   function injectTrainerSubmissionTiming(){
@@ -200,7 +268,10 @@
           : `Подано за ${formatClockSeconds(timing.elapsed)} · +${formatClockSeconds(timing.late)} понад ліміт`;
       }else if(ts&&ts.expired){
         line.style.color='var(--burgundy)';
-        line.textContent=`Не подано · час перевищено на +${formatClockSeconds(-ts.delta)}`;
+        const late=Math.min(300,Math.max(0,-ts.delta));
+        line.textContent=(-ts.delta)>=300
+          ? 'Не подано · +05:00 · облік часу зупинено'
+          : `Не подано · час перевищено на +${formatClockSeconds(late)}`;
       }else if(ts){
         line.style.color='#6b7280';
         line.textContent=`Не подано · залишилось ${formatClockSeconds(ts.delta)}`;
@@ -239,8 +310,13 @@
       card.style.cssText='margin-top:20px;border:2px solid #17324d';
       grid.insertAdjacentElement('afterend',card);
     }
-    const value=ts.expired?`+${formatClockSeconds(-ts.delta)}`:formatClockSeconds(ts.delta);
-    card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><div class="section-kicker">Таймер поточного раунду</div><h3 style="margin:4px 0">${escapeHtml(stageById(state.openedStage).kind)} · <span style="font-variant-numeric:tabular-nums;color:${ts.expired?'var(--burgundy)':'#17324d'}">${value}</span></h3><div class="small muted">${ts.expired?'Час вичерпано, відповіді приймаються з фіксацією перевищення.':`Встановлено ${Math.round(Number(ts.timer.duration_seconds)/60)} хв.`}</div></div><button class="btn secondary" onclick="extendCurrentTimer(5)">+5 хвилин</button></div>`;
+    const overtimeSeconds=ts.expired?Math.min(300,Math.max(0,-ts.delta)):0;
+    const overtimeStopped=ts.expired&&(-ts.delta)>=300;
+    const value=ts.expired?`+${formatClockSeconds(overtimeSeconds)}`:formatClockSeconds(ts.delta);
+    const timerNote=overtimeStopped
+      ? 'Минуло 5 хвилин понад ліміт. Подальший час не враховується, але відповідь ще можна подати.'
+      : (ts.expired?'Час вичерпано, відповіді приймаються з фіксацією перевищення максимум до +05:00.':`Встановлено ${Math.round(Number(ts.timer.duration_seconds)/60)} хв.`);
+    card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><div class="section-kicker">Таймер поточного раунду</div><h3 style="margin:4px 0">${escapeHtml(stageById(state.openedStage).kind)} · <span style="font-variant-numeric:tabular-nums;color:${ts.expired?'var(--burgundy)':'#17324d'}">${value}</span></h3><div class="small muted">${timerNote}</div></div><button class="btn secondary" onclick="extendCurrentTimer(5)">+5 хвилин</button></div>`;
   }
 
   function patchScoreInputs(){
@@ -425,7 +501,10 @@
   };
 
   window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,activeTeams,timerRow,timerState,submissionTiming,isFinalPublished:()=>!!remote.game?.final_published};
+  document.addEventListener('pointerdown',unlockTimerAudio,{passive:true});
+  document.addEventListener('keydown',unlockTimerAudio);
   document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>refresh(true),300));
   setInterval(()=>refresh(false),2500);
-  setInterval(updateUi,1200);
+  setInterval(updateUi,1000);
+  setInterval(timerAudioPulse,200);
 })();

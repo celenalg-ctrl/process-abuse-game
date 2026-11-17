@@ -1,7 +1,8 @@
 (function(){
   const API='https://cgyyagoxbgzneuqxcbqr.supabase.co/functions/v1/game-api-v2';
-  const remote={game:null,scores:[],submissions:[]};
+  const remote={game:null,scores:[],submissions:[],timers:[]};
   let refreshing=false;
+  let serverOffsetMs=0;
 
   const ACCESS_KEY='processAbuseAccessCode';
 
@@ -72,6 +73,8 @@
     remote.game=data.game||remote.game;
     remote.scores=Array.isArray(data.scores)?data.scores:[];
     remote.submissions=Array.isArray(data.submissions)?data.submissions:[];
+    remote.timers=Array.isArray(data.timers)?data.timers:[];
+    if(data.server_now){const t=Date.parse(data.server_now);if(Number.isFinite(t)) serverOffsetMs=t-Date.now();}
 
     if(remote.game&&typeof state!=='undefined'){
       const opened=Number(remote.game.opened_stage||0);
@@ -93,6 +96,145 @@
       });
       save();
     }
+  }
+
+  function timerRow(stageId){
+    return remote.timers.find(x=>Number(x.stage_id)===Number(stageId))||null;
+  }
+
+  function submissionRow(teamId,stageId){
+    return remote.submissions.find(x=>x.team_id===teamId&&Number(x.stage_id)===Number(stageId))||null;
+  }
+
+  function serverNowMs(){
+    return Date.now()+serverOffsetMs;
+  }
+
+  function formatClockSeconds(totalSeconds){
+    const sec=Math.max(0,Math.floor(Math.abs(totalSeconds)));
+    const m=Math.floor(sec/60);
+    const s=sec%60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function timerState(stageId){
+    const timer=timerRow(stageId);
+    if(!timer) return null;
+    const deadline=Date.parse(timer.deadline_at);
+    const started=Date.parse(timer.started_at);
+    if(!Number.isFinite(deadline)||!Number.isFinite(started)) return null;
+    const delta=Math.ceil((deadline-serverNowMs())/1000);
+    return {timer,deadline,started,delta,expired:delta<0};
+  }
+
+  function submissionTiming(teamId,stageId){
+    const submission=submissionRow(teamId,stageId);
+    const timer=timerRow(stageId);
+    if(!submission||!timer) return null;
+    const submitted=Date.parse(submission.submitted_at);
+    const started=Date.parse(timer.started_at);
+    const deadline=Date.parse(timer.deadline_at);
+    if(!Number.isFinite(submitted)||!Number.isFinite(started)||!Number.isFinite(deadline)) return null;
+    const elapsed=Math.max(0,Math.round((submitted-started)/1000));
+    const late=Math.max(0,Math.round((submitted-deadline)/1000));
+    return {elapsed,late,onTime:late===0,submittedAt:submission.submitted_at};
+  }
+
+  function injectTeamTimer(){
+    if(typeof state==='undefined'||state.role!=='team'||Number(state.viewedStage)===0) return;
+    const task=document.querySelector('.task-box');
+    if(!task) return;
+    const ts=timerState(state.viewedStage);
+    const timing=submissionTiming(state.teamId,state.viewedStage);
+    let box=document.getElementById('round-timer-box');
+    if(!ts){
+      if(box) box.remove();
+      return;
+    }
+    if(!box){
+      box=document.createElement('div');
+      box.id='round-timer-box';
+      box.style.cssText='margin:0 0 16px;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#faf7f1;display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap';
+      task.insertBefore(box,task.firstChild);
+    }
+    const total=Math.round(Number(ts.timer.duration_seconds||0)/60);
+    if(timing){
+      const status=timing.onTime
+        ? `<strong style="color:#28704b">Подано в межах часу</strong>`
+        : `<strong style="color:var(--burgundy)">Перевищення +${formatClockSeconds(timing.late)}</strong>`;
+      box.innerHTML=`<div><div class="section-kicker">Час раунду</div><div style="font-weight:900;font-size:20px">${formatClockSeconds(timing.elapsed)}</div><div class="small muted">від старту до надсилання · ліміт ${total} хв</div></div><div style="text-align:right">${status}</div>`;
+      return;
+    }
+    const value=ts.expired?`+${formatClockSeconds(-ts.delta)}`:formatClockSeconds(ts.delta);
+    const label=ts.expired?'Час завершено':'Залишилось';
+    const accent=ts.expired?'var(--burgundy)':(ts.delta<=120?'#9a5b13':'#17324d');
+    box.innerHTML=`<div><div class="section-kicker">${label}</div><div style="font-size:30px;font-weight:900;color:${accent};font-variant-numeric:tabular-nums">${value}</div></div><div class="small muted" style="max-width:250px">${ts.expired?'Відповідь усе ще можна надіслати. Перевищення часу буде зафіксовано.':`Ліміт раунду: ${total} хв. Таймер спільний для всіх команд.`}</div>`;
+  }
+
+  function injectTrainerSubmissionTiming(){
+    if(typeof state==='undefined'||state.role!=='trainer') return;
+    activeTeams().forEach(t=>{
+      const input=document.getElementById(`score-${t.id}`);
+      const card=input?.closest('.response-card,.team-row');
+      if(!card) return;
+      let line=card.querySelector('.submission-timing');
+      if(!line){
+        line=document.createElement('div');
+        line.className='submission-timing small';
+        line.style.cssText='margin-top:8px;font-weight:800';
+        const status=card.querySelector('.response-status')||card.children?.[0];
+        if(status) status.appendChild(line); else card.appendChild(line);
+      }
+      const timing=submissionTiming(t.id,state.viewedStage);
+      const ts=timerState(state.viewedStage);
+      if(timing){
+        line.style.color=timing.onTime?'#28704b':'var(--burgundy)';
+        line.textContent=timing.onTime
+          ? `Подано за ${formatClockSeconds(timing.elapsed)} · у межах часу`
+          : `Подано за ${formatClockSeconds(timing.elapsed)} · +${formatClockSeconds(timing.late)} понад ліміт`;
+      }else if(ts&&ts.expired){
+        line.style.color='var(--burgundy)';
+        line.textContent=`Не подано · час перевищено на +${formatClockSeconds(-ts.delta)}`;
+      }else if(ts){
+        line.style.color='#6b7280';
+        line.textContent=`Не подано · залишилось ${formatClockSeconds(ts.delta)}`;
+      }else{
+        line.textContent='';
+      }
+    });
+  }
+
+  function injectTrainerTimerControls(){
+    if(typeof state==='undefined'||state.role!=='trainer') return;
+    const grid=document.querySelector('.trainer-grid');
+    if(!grid) return;
+
+    const next=Number(state.openedStage)+1;
+    const nextMetric=grid.querySelector('.metric:nth-child(3)');
+    if(nextMetric&&next<=D.stages.length-1&&!nextMetric.querySelector('#next-stage-duration-minutes')){
+      const wrap=document.createElement('div');
+      wrap.style.cssText='margin-top:9px;display:flex;gap:6px;align-items:center;flex-wrap:wrap';
+      wrap.innerHTML='<label class="small muted" for="next-stage-duration-minutes">Час:</label><input id="next-stage-duration-minutes" type="number" min="1" max="120" value="15" style="width:66px;padding:6px 8px;border:1px solid var(--line);border-radius:8px"><span class="small muted">хв</span>';
+      const btn=nextMetric.querySelector('button');
+      if(btn) nextMetric.insertBefore(wrap,btn);
+      else nextMetric.appendChild(wrap);
+    }
+
+    let card=document.getElementById('trainer-live-timer');
+    const ts=timerState(state.openedStage);
+    if(Number(state.openedStage)===0||!ts){
+      if(card) card.remove();
+      return;
+    }
+    if(!card){
+      card=document.createElement('section');
+      card.id='trainer-live-timer';
+      card.className='card';
+      card.style.cssText='margin-top:20px;border:2px solid #17324d';
+      grid.insertAdjacentElement('afterend',card);
+    }
+    const value=ts.expired?`+${formatClockSeconds(-ts.delta)}`:formatClockSeconds(ts.delta);
+    card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><div class="section-kicker">Таймер поточного раунду</div><h3 style="margin:4px 0">${escapeHtml(stageById(state.openedStage).kind)} · <span style="font-variant-numeric:tabular-nums;color:${ts.expired?'var(--burgundy)':'#17324d'}">${value}</span></h3><div class="small muted">${ts.expired?'Час вичерпано, відповіді приймаються з фіксацією перевищення.':`Встановлено ${Math.round(Number(ts.timer.duration_seconds)/60)} хв.`}</div></div><button class="btn secondary" onclick="extendCurrentTimer(5)">+5 хвилин</button></div>`;
   }
 
   function patchScoreInputs(){
@@ -189,6 +331,9 @@
     hideOldTeamScoreCard();
     injectParticipantSummary();
     injectTrainerRoundControls();
+    injectTrainerTimerControls();
+    injectTrainerSubmissionTiming();
+    injectTeamTimer();
     injectResetControl();
   }
 
@@ -243,7 +388,14 @@
   window.openNext=async function(){
     if(state.openedStage>=D.stages.length-1) return;
     const next=state.openedStage+1;
-    try{await call('open_stage',{stageId:next});state.viewedStage=next;await refresh(true);}catch(e){alert('Не вдалося відкрити наступний етап: '+e.message);}
+    const minutes=Number(document.getElementById('next-stage-duration-minutes')?.value||15);
+    if(!Number.isFinite(minutes)||minutes<1||minutes>120) return alert('Встановіть час раунду від 1 до 120 хвилин');
+    try{await call('open_stage',{stageId:next,durationSeconds:Math.round(minutes*60)});state.viewedStage=next;await refresh(true);}catch(e){alert('Не вдалося відкрити наступний етап: '+e.message);}
+  };
+
+  window.extendCurrentTimer=async function(minutes=5){
+    if(Number(state.openedStage)===0) return;
+    try{await call('extend_timer',{stageId:state.openedStage,addSeconds:Math.round(Number(minutes)*60)});await refresh(false);updateUi();}catch(e){alert('Не вдалося додати час: '+e.message);}
   };
 
   window.publishSharedFinal=async function(){
@@ -266,7 +418,7 @@
     }catch(e){alert('Не вдалося почати нову гру: '+e.message);}
   };
 
-  window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,activeTeams,isFinalPublished:()=>!!remote.game?.final_published};
+  window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,activeTeams,timerRow,timerState,submissionTiming,isFinalPublished:()=>!!remote.game?.final_published};
   document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>refresh(true),300));
   setInterval(()=>refresh(false),2500);
   setInterval(updateUi,1200);

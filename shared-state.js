@@ -129,11 +129,17 @@
 
   function submissionTiming(teamId,stageId){
     const submission=submissionRow(teamId,stageId);
+    if(!submission) return null;
+    const storedElapsed=Number(submission.elapsed_seconds);
+    const storedLate=Number(submission.late_by_seconds);
+    if(Number.isFinite(storedElapsed)&&storedElapsed>=0&&Number.isFinite(storedLate)&&storedLate>=0){
+      return {elapsed:storedElapsed,late:storedLate,onTime:storedLate===0,submittedAt:submission.submitted_at};
+    }
     const timer=timerRow(stageId);
-    if(!submission||!timer) return null;
+    if(!timer) return null;
     const submitted=Date.parse(submission.submitted_at);
     const started=Date.parse(timer.started_at);
-    const deadline=Date.parse(timer.deadline_at);
+    const deadline=Date.parse(submission.timer_deadline_at||timer.deadline_at);
     if(!Number.isFinite(submitted)||!Number.isFinite(started)||!Number.isFinite(deadline)) return null;
     const elapsed=Math.max(0,Math.round((submitted-started)/1000));
     const late=Math.max(0,Math.round((submitted-deadline)/1000));

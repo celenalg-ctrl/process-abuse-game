@@ -190,11 +190,13 @@
   }
 
   function playTimeUpSignal(){
-    // Помітний тритоновий сигнал завершення часу:
-    // короткий вступ, виразний середній тон і довший фінальний акцент.
-    playTone(520,0.16,0.11,'sine');
-    setTimeout(()=>playTone(760,0.20,0.13,'sine'),170);
-    setTimeout(()=>playTone(980,0.42,0.15,'sine'),390);
+    // Довший і виразніший сигнал завершення часу:
+    // наростаюча послідовність із подвійним фінальним акцентом.
+    playTone(520,0.18,0.12,'sine');
+    setTimeout(()=>playTone(700,0.22,0.14,'sine'),190);
+    setTimeout(()=>playTone(900,0.26,0.16,'sine'),430);
+    setTimeout(()=>playTone(1120,0.34,0.18,'sine'),710);
+    setTimeout(()=>playTone(900,0.55,0.20,'sine'),1080);
   }
 
   function timerAudioPulse(){

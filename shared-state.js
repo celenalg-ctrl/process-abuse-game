@@ -190,13 +190,14 @@
   }
 
   function playTimeUpSignal(){
-    // Довший і виразніший сигнал завершення часу:
-    // наростаюча послідовність із подвійним фінальним акцентом.
-    playTone(520,0.18,0.12,'sine');
-    setTimeout(()=>playTone(700,0.22,0.14,'sine'),190);
-    setTimeout(()=>playTone(900,0.26,0.16,'sine'),430);
-    setTimeout(()=>playTone(1120,0.34,0.18,'sine'),710);
-    setTimeout(()=>playTone(900,0.55,0.20,'sine'),1080);
+    // Довгий виразний сигнал завершення раунду:
+    // наростання, коротка пауза і подвійний фінальний акцент.
+    playTone(440,0.24,0.13,'sine');
+    setTimeout(()=>playTone(620,0.28,0.15,'sine'),250);
+    setTimeout(()=>playTone(820,0.32,0.17,'sine'),550);
+    setTimeout(()=>playTone(1040,0.42,0.20,'sine'),890);
+    setTimeout(()=>playTone(760,0.28,0.18,'sine'),1390);
+    setTimeout(()=>playTone(980,0.85,0.22,'sine'),1710);
   }
 
   function timerAudioPulse(){

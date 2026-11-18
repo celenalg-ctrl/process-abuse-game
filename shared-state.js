@@ -128,8 +128,9 @@
     const deadline=Date.parse(timer.deadline_at);
     const started=Date.parse(timer.started_at);
     if(!Number.isFinite(deadline)||!Number.isFinite(started)) return null;
-    const delta=Math.ceil((deadline-serverNowMs())/1000);
-    return {timer,deadline,started,delta,expired:delta<0};
+    const rawDelta=Math.ceil((deadline-serverNowMs())/1000);
+    const delta=Math.max(-300,rawDelta);
+    return {timer,deadline,started,delta,rawDelta,expired:rawDelta<0,overtimeStopped:rawDelta<=-300};
   }
 
   function submissionTiming(teamId,stageId){
@@ -138,7 +139,11 @@
     const storedElapsed=Number(submission.elapsed_seconds);
     const storedLate=Number(submission.late_by_seconds);
     if(Number.isFinite(storedElapsed)&&storedElapsed>=0&&Number.isFinite(storedLate)&&storedLate>=0){
-      return {elapsed:storedElapsed,late:storedLate,onTime:storedLate===0,submittedAt:submission.submitted_at};
+      const late=Math.min(300,storedLate);
+      const timer=timerRow(stageId);
+      const baseDuration=timer?Math.max(0,Math.round((Date.parse(timer.deadline_at)-Date.parse(timer.started_at))/1000)):null;
+      const elapsed=Number.isFinite(baseDuration)?Math.min(storedElapsed,baseDuration+300):storedElapsed;
+      return {elapsed,late,onTime:late===0,submittedAt:submission.submitted_at};
     }
     const timer=timerRow(stageId);
     if(!timer) return null;
@@ -146,8 +151,9 @@
     const started=Date.parse(timer.started_at);
     const deadline=Date.parse(submission.timer_deadline_at||timer.deadline_at);
     if(!Number.isFinite(submitted)||!Number.isFinite(started)||!Number.isFinite(deadline)) return null;
-    const elapsed=Math.max(0,Math.round((submitted-started)/1000));
-    const late=Math.max(0,Math.round((submitted-deadline)/1000));
+    const baseDuration=Math.max(0,Math.round((deadline-started)/1000));
+    const elapsed=Math.min(Math.max(0,Math.round((submitted-started)/1000)),baseDuration+300);
+    const late=Math.min(300,Math.max(0,Math.round((submitted-deadline)/1000)));
     return {elapsed,late,onTime:late===0,submittedAt:submission.submitted_at};
   }
 
@@ -235,7 +241,7 @@
       return;
     }
     const overtimeSeconds=ts.expired?Math.min(300,Math.max(0,-ts.delta)):0;
-    const overtimeStopped=ts.expired&&(-ts.delta)>=300;
+    const overtimeStopped=!!ts.overtimeStopped;
     const value=ts.expired?`+${formatClockSeconds(overtimeSeconds)}`:formatClockSeconds(ts.delta);
     const label=overtimeStopped?'Облік часу зупинено':(ts.expired?'Час завершено':'Залишилось');
     const accent=ts.expired?'var(--burgundy)':(ts.delta<=120?'#9a5b13':'#17324d');
@@ -269,7 +275,7 @@
       }else if(ts&&ts.expired){
         line.style.color='var(--burgundy)';
         const late=Math.min(300,Math.max(0,-ts.delta));
-        line.textContent=(-ts.delta)>=300
+        line.textContent=ts.overtimeStopped
           ? 'Не подано · +05:00 · облік часу зупинено'
           : `Не подано · час перевищено на +${formatClockSeconds(late)}`;
       }else if(ts){
@@ -311,7 +317,7 @@
       grid.insertAdjacentElement('afterend',card);
     }
     const overtimeSeconds=ts.expired?Math.min(300,Math.max(0,-ts.delta)):0;
-    const overtimeStopped=ts.expired&&(-ts.delta)>=300;
+    const overtimeStopped=!!ts.overtimeStopped;
     const value=ts.expired?`+${formatClockSeconds(overtimeSeconds)}`:formatClockSeconds(ts.delta);
     const timerNote=overtimeStopped
       ? 'Минуло 5 хвилин понад ліміт. Подальший час не враховується, але відповідь ще можна подати.'

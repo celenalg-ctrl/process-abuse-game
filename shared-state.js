@@ -185,12 +185,16 @@
   }
 
   function playTick(){
-    playTone(1100,0.045,0.035,'square');
+    // Виразний, але короткий "тик" для останніх 10 секунд.
+    playTone(1250,0.07,0.075,'square');
   }
 
   function playTimeUpSignal(){
-    playTone(660,0.14,0.06,'sine');
-    setTimeout(()=>playTone(880,0.22,0.07,'sine'),150);
+    // Помітний тритоновий сигнал завершення часу:
+    // короткий вступ, виразний середній тон і довший фінальний акцент.
+    playTone(520,0.16,0.11,'sine');
+    setTimeout(()=>playTone(760,0.20,0.13,'sine'),170);
+    setTimeout(()=>playTone(980,0.42,0.15,'sine'),390);
   }
 
   function timerAudioPulse(){

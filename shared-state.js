@@ -420,9 +420,69 @@
     if(target) target.insertAdjacentHTML('afterend',html); else main.insertAdjacentHTML('afterbegin',html);
   }
 
+  function injectTrainerCalibrationResults(){
+    if(typeof state==='undefined'||state.role!=='trainer') return;
+    const main=document.querySelector('main.container');
+    if(!main) return;
+    const old=document.getElementById('trainer-calibration-results');
+    if(Number(state.viewedStage)!==0){
+      if(old) old.remove();
+      return;
+    }
+
+    const stage=stageById(0);
+    const items=stage?.task?.items||[];
+    const options=stage?.task?.options||[];
+    const teams=activeTeams();
+    const parsed={};
+    teams.forEach(t=>{
+      const row=submissionRow(t.id,0);
+      if(!row){parsed[t.id]=null;return;}
+      try{parsed[t.id]=JSON.parse(row.answer||'{}');}
+      catch(e){parsed[t.id]={_raw:row.answer};}
+    });
+
+    const submittedCount=teams.filter(t=>parsed[t.id]).length;
+    const cells=items.map((item,idx)=>{
+      const teamCells=teams.map(t=>{
+        const v=parsed[t.id]?.[item.id];
+        const color=v==='Має ознаки зловживання'?'var(--burgundy)':(v==='Спірно'?'#9a5b13':'#28704b');
+        return `<td style="padding:10px 8px;border-top:1px solid var(--line);vertical-align:top"><strong style="color:${v?color:'#9ca3af'}">${v?escapeHtml(v):'Ще не подано'}</strong></td>`;
+      }).join('');
+      return `<tr><td style="padding:10px 10px;border-top:1px solid var(--line);vertical-align:top;min-width:280px"><div class="section-kicker">Ситуація ${idx+1}</div><div style="font-weight:700;line-height:1.4">${escapeHtml(item.prompt||'')}</div></td>${teamCells}</tr>`;
+    }).join('');
+
+    const summary=options.map(opt=>{
+      const counts=items.map(item=>teams.filter(t=>parsed[t.id]?.[item.id]===opt).length);
+      const total=counts.reduce((a,b)=>a+b,0);
+      return `<span class="meta-chip" style="margin-right:6px">${escapeHtml(opt)}: <strong>${total}</strong></span>`;
+    }).join('');
+
+    const html=`<section class="card" id="trainer-calibration-results" style="margin:20px 0;border:2px solid #17324d">
+      <div class="section-kicker">Результати калібрування</div>
+      <h2 style="margin-bottom:6px">Стартова оцінка команд</h2>
+      <p class="small muted" style="margin-bottom:12px">Подали калібрування: <strong>${submittedCount}/${teams.length}</strong>. У таблиці видно позицію кожної команди по всіх 5 ситуаціях.</p>
+      <div style="margin-bottom:12px">${summary}</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:760px">
+          <thead><tr><th style="text-align:left;padding:9px 10px;background:#f4f1eb">Ситуація</th>${teams.map(t=>`<th style="text-align:left;padding:9px 8px;background:#f4f1eb">${escapeHtml(t.name)}</th>`).join('')}</tr></thead>
+          <tbody>${cells}</tbody>
+        </table>
+      </div>
+    </section>`;
+
+    if(old) old.outerHTML=html;
+    else {
+      const grid=document.querySelector('.trainer-grid');
+      if(grid) grid.insertAdjacentHTML('afterend',html);
+      else main.insertAdjacentHTML('afterbegin',html);
+    }
+  }
+
   function updateUi(){
     patchScoreInputs();
     injectTrainerLabels();
+    injectTrainerCalibrationResults();
     hideOldTeamScoreCard();
     injectParticipantSummary();
     injectTrainerRoundControls();
@@ -452,6 +512,23 @@
     }
     finally{refreshing=false;}
   }
+
+  window.submitCalibration=async function(id){
+    const stage=stageById(Number(id));
+    const items=stage?.task?.items||[];
+    const answers={};
+    for(const item of items){
+      const v=document.querySelector(`input[name="cal-${item.id}"]:checked`)?.value;
+      if(!v) return alert('Оцініть усі 5 ситуацій перед поданням');
+      answers[item.id]=v;
+    }
+    try{
+      await call('submit',{stageId:id,answer:JSON.stringify(answers)});
+      await refresh(true);
+    }catch(e){
+      alert('Не вдалося зберегти калібрування: '+e.message);
+    }
+  };
 
   window.submitChoice=async function(id){
     const v=document.querySelector('input[name=choice]:checked')?.value;

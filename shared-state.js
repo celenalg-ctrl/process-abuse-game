@@ -16,7 +16,7 @@
   }
 
   window.validateGameAccess=async function(inputCode){
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get_state',code:String(inputCode||'').trim()})});
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get_state',code:String(inputCode||'').trim().toUpperCase().replace(/[\s–—]+/g,'-')})});
     const j=await r.json().catch(()=>({error:'Некоректна відповідь сервера'}));
     if(!r.ok||j.error) throw new Error(j.error||'Помилка сервера');
     return j;

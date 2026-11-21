@@ -27,11 +27,11 @@
         saveButton.style.display='none';
         if(saveButton.parentElement) saveButton.parentElement.style.display='none';
       }
-      input.min='0'; input.max='100'; input.step='1';
-      input.placeholder='Бал';
-      input.title='Оберіть або введіть бал. Він зберігається автоматично.';
+      input.min='0'; input.max='15'; input.step='1';
+      input.placeholder='0-15';
+      input.title='Введіть бал за зміст від 0 до 15. Штраф за час система відніме автоматично.';
 
-      const remoteScore=window.GAME_SHARED?.roundScore?.(t.id,state.viewedStage,false);
+      const remoteScore=window.GAME_SHARED?.rawRoundScore?.(t.id,state.viewedStage);
       if(document.activeElement!==input){
         if(Object.prototype.hasOwnProperty.call(scoreDrafts,draftKey)) input.value=scoreDrafts[draftKey];
         else if(remoteScore===null||remoteScore===undefined) input.value='';
@@ -47,7 +47,7 @@
         const v=input.value.trim();
         if(v==='') return;
         const n=Number(v);
-        if(!Number.isFinite(n)||n<0||n>100){alert('Введіть бал від 0 до 100');return;}
+        if(!Number.isFinite(n)||n<0||n>15){alert('Введіть бал за зміст від 0 до 15');return;}
         const currentKey=`${state.viewedStage}-${t.id}`;
         scoreDrafts[currentKey]=String(Math.round(n));
         input.value=scoreDrafts[currentKey];

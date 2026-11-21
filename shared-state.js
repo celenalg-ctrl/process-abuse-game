@@ -400,7 +400,7 @@
         line.style.color='var(--burgundy)';
         const late=Math.min(300,Math.max(0,-ts.delta));
         line.textContent=ts.overtimeStopped
-          ? 'Не подано · +05:00 · облік часу зупинено'
+          ? 'Не подано · +05:00 · подання закрито · автоматично 0 балів'
           : `Не подано · час перевищено на +${formatClockSeconds(late)}`;
       }else if(ts){
         line.style.color='#6b7280';
@@ -451,13 +451,35 @@
 
   function patchScoreInputs(){
     if(typeof state==='undefined'||state.role!=='trainer') return;
+    const stageId=Number(state.viewedStage);
+    const ts=timerState(stageId);
     activeTeams().forEach(t=>{
       const input=document.getElementById(`score-${t.id}`);
       if(!input||document.activeElement===input) return;
-      const value=rawRoundScore(t.id,state.viewedStage);
-      const desired=String(value===null?'':value);
+      const value=rawRoundScore(t.id,stageId);
+      const noSubmission=!submissionRow(t.id,stageId);
+      const autoZero=stageId>0&&!!ts?.overtimeStopped&&noSubmission&&value===null;
+      const desired=autoZero?'0':String(value===null?'':value);
       if(input.value!==desired) input.value=desired;
-      input.title='Бал за поточний раунд';
+      input.disabled=autoZero;
+      input.title=autoZero
+        ? 'Відповідь не подано до +05:00. За раунд автоматично 0 балів.'
+        : 'Бал за зміст від 0 до 15';
+      const row=input.closest('.team-row');
+      if(row){
+        let auto=row.querySelector('.auto-zero-note');
+        if(autoZero){
+          if(!auto){
+            auto=document.createElement('div');
+            auto.className='auto-zero-note small';
+            auto.style.cssText='grid-column:1/-1;margin-top:-3px;color:var(--burgundy);font-weight:900;text-align:right';
+            row.appendChild(auto);
+          }
+          auto.textContent='Відповідь не подано до +05:00 · автоматично 0 балів';
+        }else if(auto){
+          auto.remove();
+        }
+      }
     });
   }
 
@@ -519,11 +541,17 @@
     if(!main) return;
     const old=document.getElementById('trainer-round-publish-card');
     const stageId=state.viewedStage;
-    const rows=activeTeams().map(t=>({team:t,score:roundScore(t.id,stageId,false)}));
-    const allScored=rows.every(x=>x.score!==null);
+    const ts=timerState(stageId);
+    const rows=activeTeams().map(t=>{
+      const score=roundScore(t.id,stageId,false);
+      const noSubmission=!submissionRow(t.id,stageId);
+      const autoZero=stageId>0&&!!ts?.overtimeStopped&&noSubmission&&score===null;
+      return {team:t,score,autoZero};
+    });
+    const allReady=rows.every(x=>x.score!==null||x.autoZero);
     const published=isRoundPublished(stageId);
     const totals=activeTeams().map(t=>({team:t,total:totalScore(t.id,false)}));
-    const html=`<section class="card" id="trainer-round-publish-card" style="margin-top:20px"><div class="section-kicker">Оцінювання раунду</div><h2>${escapeHtml(stageById(stageId).kind)}: результати команд</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0">${rows.map(x=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px;background:#faf7f1"><strong>${escapeHtml(x.team.name)}</strong><div style="font-size:28px;font-weight:900;color:var(--burgundy);margin-top:6px">${x.score===null?'—':x.score}</div></div>`).join('')}</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn burgundy" ${allScored?'':'disabled'} onclick="publishCurrentRound()">${published?'Опубліковано для команд':'Опублікувати результат раунду'}</button>${published?'<button class="btn secondary" onclick="unpublishCurrentRound()">Зняти з публікації</button>':''}<span class="small muted">${allScored?'Усі команди оцінені.':'Спочатку виставте бали всім командам.'}</span></div><div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><div class="section-kicker">Поточна сума тренера</div>${totals.map(x=>`<div style="display:flex;justify-content:space-between;margin-top:6px"><span>${escapeHtml(x.team.name)}</span><strong>${x.total}</strong></div>`).join('')}</div>${stageId===D.stages[D.stages.length-1].id?`<div style="margin-top:18px"><button class="btn burgundy" ${published?'':'disabled'} onclick="publishSharedFinal()">Опублікувати фінальний рахунок</button></div>`:''}</section>`;
+    const html=`<section class="card" id="trainer-round-publish-card" style="margin-top:20px"><div class="section-kicker">Оцінювання раунду</div><h2>${escapeHtml(stageById(stageId).kind)}: результати команд</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0">${rows.map(x=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px;background:#faf7f1"><strong>${escapeHtml(x.team.name)}</strong><div style="font-size:28px;font-weight:900;color:var(--burgundy);margin-top:6px">${x.score===null?(x.autoZero?'0':'—'):x.score}</div>${x.autoZero?'<div class="small" style="margin-top:4px;color:var(--burgundy);font-weight:800">автоматично, відповідь не подано</div>':''}</div>`).join('')}</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button class="btn burgundy" ${allReady?'':'disabled'} onclick="publishCurrentRound()">${published?'Опубліковано для команд':'Опублікувати результат раунду'}</button>${published?'<button class="btn secondary" onclick="unpublishCurrentRound()">Зняти з публікації</button>':''}<span class="small muted">${allReady?'Усі команди готові до публікації. Для неподачі після +05:00 система зафіксує 0 автоматично.':'Виставте бали командам, які подали відповіді.'}</span></div><div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)"><div class="section-kicker">Поточна сума тренера</div>${totals.map(x=>`<div style="display:flex;justify-content:space-between;margin-top:6px"><span>${escapeHtml(x.team.name)}</span><strong>${x.total}</strong></div>`).join('')}</div>${stageId===D.stages[D.stages.length-1].id?`<div style="margin-top:18px"><button class="btn burgundy" ${published?'':'disabled'} onclick="publishSharedFinal()">Опублікувати фінальний рахунок</button></div>`:''}</section>`;
     if(old){if(old.outerHTML!==html) old.outerHTML=html;} else main.insertAdjacentHTML('beforeend',html);
   }
 

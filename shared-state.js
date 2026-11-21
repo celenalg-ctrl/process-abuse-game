@@ -387,11 +387,15 @@
       const timing=submissionTiming(t.id,state.viewedStage);
       const ts=timerState(state.viewedStage);
       if(timing){
+        const row=scoreRow(t.id,state.viewedStage);
         const penalty=Math.min(4,Math.floor(Math.max(0,timing.late)/60));
         line.style.color=timing.onTime?'#28704b':'var(--burgundy)';
+        const scoreText=row&&row.raw_score!==null&&row.raw_score!==undefined
+          ? ` · за зміст ${Number(row.raw_score)||0} · до рахунку ${Number(row.score)||0}`
+          : '';
         line.textContent=timing.onTime
-          ? `Подано за ${formatClockSeconds(timing.elapsed)} · у межах часу · штраф 0`
-          : `Подано за ${formatClockSeconds(timing.elapsed)} · +${formatClockSeconds(timing.late)} · автоматичний штраф -${penalty}`;
+          ? `Подано за ${formatClockSeconds(timing.elapsed)} · у межах часу · штраф 0${scoreText}`
+          : `Подано за ${formatClockSeconds(timing.elapsed)} · +${formatClockSeconds(timing.late)} · автоматичний штраф -${penalty}${scoreText}`;
       }else if(ts&&ts.expired){
         line.style.color='var(--burgundy)';
         const late=Math.min(300,Math.max(0,-ts.delta));

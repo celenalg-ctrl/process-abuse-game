@@ -546,6 +546,11 @@
 
     const main=document.querySelector('main.container');
     if(!main) return;
+
+    // Поки повторну оцінку ще не подано, не перемальовуємо форму під час
+    // фонового refresh(), щоб вибрані radio-кнопки не скидалися.
+    if(old && !end) return;
+
     if(old) old.outerHTML=html;
     else main.insertAdjacentHTML('beforeend',html);
   }

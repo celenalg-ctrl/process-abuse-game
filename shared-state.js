@@ -73,6 +73,19 @@
     return Number(row.score)||0;
   }
 
+  function rawRoundScore(teamId,stageId){
+    const row=scoreRow(teamId,stageId);
+    if(!row) return null;
+    const raw=Number(row.raw_score);
+    return Number.isFinite(raw)?raw:Number(row.score)||0;
+  }
+
+  function roundTimePenalty(teamId,stageId){
+    const row=scoreRow(teamId,stageId);
+    if(!row) return 0;
+    return Math.max(0,Number(row.time_penalty)||0);
+  }
+
   function totalScore(teamId,publishedOnly=false){
     const maxStage=openedStage();
     return remote.scores
@@ -334,9 +347,10 @@
     }
     const total=Math.round(Number(ts.timer.duration_seconds||0)/60);
     if(timing){
+      const penalty=Math.min(4,Math.floor(Math.max(0,timing.late)/60));
       const status=timing.onTime
         ? `<strong style="color:#28704b">Подано в межах часу</strong>`
-        : `<strong style="color:var(--burgundy)">Перевищення +${formatClockSeconds(timing.late)}</strong>`;
+        : `<strong style="color:var(--burgundy)">Перевищення +${formatClockSeconds(timing.late)} · штраф -${penalty}</strong>`;
       box.innerHTML=`<div><div class="section-kicker">Час раунду</div><div style="font-weight:900;font-size:20px">${formatClockSeconds(timing.elapsed)}</div><div class="small muted">від старту до надсилання · ліміт ${total} хв</div></div><div style="text-align:right">${status}</div>`;
       return;
     }
@@ -346,9 +360,14 @@
     const label=overtimeStopped?'Облік часу зупинено':(ts.expired?'Час завершено':'Залишилось');
     const accent=ts.expired?'var(--burgundy)':(ts.delta<=120?'#9a5b13':'#17324d');
     const note=overtimeStopped
-      ? 'Минуло 5 хвилин понад ліміт. Відповідь усе ще можна надіслати, але подальший час не враховується.'
-      : (ts.expired?'Відповідь усе ще можна надіслати. Перевищення часу фіксується максимум до +05:00.':`Ліміт раунду: ${total} хв. Таймер спільний для всіх команд.`);
+      ? 'Минуло 5 хвилин понад ліміт. Подання відповіді закрито.'
+      : (ts.expired?'Відповідь ще можна подати до +05:00. Штраф: -1 бал за кожну повну хвилину прострочення.':`Ліміт раунду: ${total} хв. Таймер спільний для всіх команд.`);
     box.innerHTML=`<div><div class="section-kicker">${label}</div><div style="font-size:30px;font-weight:900;color:${accent};font-variant-numeric:tabular-nums">${value}</div></div><div class="small muted" style="max-width:280px">${note}</div>`;
+    const submitButton=task.querySelector('button.btn.burgundy');
+    if(submitButton&&!submissionRow(state.teamId,state.viewedStage)){
+      submitButton.disabled=overtimeStopped;
+      if(overtimeStopped) submitButton.textContent='Час подання завершено';
+    }
   }
 
   function injectTrainerSubmissionTiming(){
@@ -368,10 +387,11 @@
       const timing=submissionTiming(t.id,state.viewedStage);
       const ts=timerState(state.viewedStage);
       if(timing){
+        const penalty=Math.min(4,Math.floor(Math.max(0,timing.late)/60));
         line.style.color=timing.onTime?'#28704b':'var(--burgundy)';
         line.textContent=timing.onTime
-          ? `Подано за ${formatClockSeconds(timing.elapsed)} · у межах часу`
-          : `Подано за ${formatClockSeconds(timing.elapsed)} · +${formatClockSeconds(timing.late)} понад ліміт`;
+          ? `Подано за ${formatClockSeconds(timing.elapsed)} · у межах часу · штраф 0`
+          : `Подано за ${formatClockSeconds(timing.elapsed)} · +${formatClockSeconds(timing.late)} · автоматичний штраф -${penalty}`;
       }else if(ts&&ts.expired){
         line.style.color='var(--burgundy)';
         const late=Math.min(300,Math.max(0,-ts.delta));
@@ -420,8 +440,8 @@
     const overtimeStopped=!!ts.overtimeStopped;
     const value=ts.expired?`+${formatClockSeconds(overtimeSeconds)}`:formatClockSeconds(ts.delta);
     const timerNote=overtimeStopped
-      ? 'Минуло 5 хвилин понад ліміт. Подальший час не враховується, але відповідь ще можна подати.'
-      : (ts.expired?'Час вичерпано, відповіді приймаються з фіксацією перевищення максимум до +05:00.':`Встановлено ${Math.round(Number(ts.timer.duration_seconds)/60)} хв.`);
+      ? 'Минуло 5 хвилин понад ліміт. Подання відповіді автоматично закрито.'
+      : (ts.expired?'Час вичерпано. До +05:00 відповідь ще приймається зі штрафом -1 бал за кожну повну хвилину прострочення.':`Встановлено ${Math.round(Number(ts.timer.duration_seconds)/60)} хв.`);
     card.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap"><div><div class="section-kicker">Таймер поточного раунду</div><h3 style="margin:4px 0">${escapeHtml(stageById(state.openedStage).kind)} · <span style="font-variant-numeric:tabular-nums;color:${ts.expired?'var(--burgundy)':'#17324d'}">${value}</span></h3><div class="small muted">${timerNote}</div></div><button class="btn secondary" onclick="extendCurrentTimer(5)">+5 хвилин</button></div>`;
   }
 
@@ -430,8 +450,8 @@
     activeTeams().forEach(t=>{
       const input=document.getElementById(`score-${t.id}`);
       if(!input||document.activeElement===input) return;
-      const value=roundScore(t.id,state.viewedStage,false);
-      const desired=String(value===null?0:value);
+      const value=rawRoundScore(t.id,state.viewedStage);
+      const desired=String(value===null?'':value);
       if(input.value!==desired) input.value=desired;
       input.title='Бал за поточний раунд';
     });
@@ -444,7 +464,7 @@
       if(!inp) return;
       const parent=inp.parentElement;
       if(parent&&!parent.querySelector('.round-score-label')){
-        parent.insertAdjacentHTML('afterbegin','<div class="round-score-label small muted" style="margin-bottom:5px">Бал за цей раунд</div>');
+        parent.insertAdjacentHTML('afterbegin','<div class="round-score-label small muted" style="margin-bottom:5px">Бал за зміст (0-15)</div>');
       }
     });
   }
@@ -780,8 +800,23 @@
   window.setScore=async function(id){
     const input=el(`score-${id}`);
     const score=Number(input?.value);
-    if(!Number.isFinite(score)||score<0||score>100) return alert('Введіть бал від 0 до 100');
-    try{await call('set_score',{teamId:id,stageId:state.viewedStage,score});await refresh(false);updateUi();}catch(e){alert('Не вдалося зберегти бал: '+e.message);}
+    if(!Number.isFinite(score)||score<0||score>15) return alert('Введіть бал за зміст від 0 до 15');
+    try{
+      const result=await call('set_score',{teamId:id,stageId:state.viewedStage,score});
+      await refresh(false);
+      updateUi();
+      const row=input?.closest('.team-row');
+      if(row){
+        let calc=row.querySelector('.score-calculation');
+        if(!calc){
+          calc=document.createElement('div');
+          calc.className='score-calculation small';
+          calc.style.cssText='grid-column:1/-1;margin-top:-4px;color:#6e7780;text-align:right';
+          row.appendChild(calc);
+        }
+        calc.textContent=`За зміст: ${result.raw_score} · штраф за час: -${result.time_penalty} · до рахунку: ${result.score}`;
+      }
+    }catch(e){alert('Не вдалося зберегти бал: '+e.message);}
   };
 
   window.publishCurrentRound=async function(){
@@ -848,7 +883,7 @@
     setTimeout(pollLoop,nextPollDelay());
   }
 
-  window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,activeTeams,timerRow,timerState,submissionTiming,isFinalPublished:()=>!!remote.game?.final_published};
+  window.GAME_SHARED={remote,call,refresh,roundScore,rawRoundScore,roundTimePenalty,totalScore,isRoundPublished,activeTeams,timerRow,timerState,submissionTiming,isFinalPublished:()=>!!remote.game?.final_published};
   document.addEventListener('pointerdown',unlockTimerAudio,{passive:true});
   document.addEventListener('keydown',unlockTimerAudio);
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') refresh(false);});

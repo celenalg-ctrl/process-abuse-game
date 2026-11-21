@@ -10,6 +10,7 @@
   let previousTimerDelta=null;
 
   const ACCESS_KEY='processAbuseAccessCode';
+  const FINAL_CELEBRATION_KEY='processAbuseFinalCelebrationShown';
 
   function code(){
     return sessionStorage.getItem(ACCESS_KEY)||null;
@@ -74,8 +75,86 @@
     return rows.length===activeTeams().length&&rows.every(x=>x.published===true);
   }
 
+  function finalRanking(){
+    const published=!!remote.game?.final_published;
+    return activeTeams()
+      .map(t=>({team:t,total:totalScore(t.id,published)}))
+      .sort((a,b)=>b.total-a.total||String(a.team.id).localeCompare(String(b.team.id)));
+  }
+
+  function closeFinalCelebration(){
+    document.getElementById('final-celebration')?.remove();
+  }
+
+  function launchFinalCelebration(force=false){
+    if(typeof state==='undefined'||!state.role) return;
+    if(!force && sessionStorage.getItem(FINAL_CELEBRATION_KEY)==='1') return;
+
+    const ranked=finalRanking();
+    if(!ranked.length) return;
+    if(!force) sessionStorage.setItem(FINAL_CELEBRATION_KEY,'1');
+
+    closeFinalCelebration();
+
+    const first=ranked[0]||null;
+    const second=ranked[1]||null;
+    const third=ranked[2]||null;
+    const rest=ranked.slice(3);
+
+    const podiumItem=(x,place,cls)=>{
+      if(!x) return `<div class="final-podium-slot empty"></div>`;
+      const medal=place===1?'🥇':place===2?'🥈':'🥉';
+      return `<div class="final-podium-slot ${cls}">
+        <div class="final-medal">${medal}</div>
+        <div class="final-team-name">${escapeHtml(x.team.name)}</div>
+        <div class="final-team-score">${x.total}</div>
+        <div class="final-score-label">балів</div>
+        <div class="final-podium-block"><strong>${place}</strong><span>місце</span></div>
+      </div>`;
+    };
+
+    const confetti=Array.from({length:72},(_,i)=>{
+      const left=(i*37)%100;
+      const delay=((i*13)%24)/10;
+      const dur=3.2+((i*7)%20)/10;
+      const drift=((i%9)-4)*18;
+      return `<i class="final-confetti c${i%6}" style="left:${left}%;--delay:${delay}s;--dur:${dur}s;--drift:${drift}px"></i>`;
+    }).join('');
+
+    const restHtml=rest.length?`<div class="final-rest">${rest.map((x,i)=>`<div><span>${i+4} місце</span><strong>${escapeHtml(x.team.name)}</strong><b>${x.total}</b></div>`).join('')}</div>`:'';
+
+    const html=`<div id="final-celebration" class="final-celebration" role="dialog" aria-modal="true" aria-label="Фінальний рахунок">
+      <div class="final-firework fw1"></div><div class="final-firework fw2"></div><div class="final-firework fw3"></div>
+      <div class="final-confetti-layer">${confetti}</div>
+      <button class="final-celebration-close" onclick="closeFinalCelebration()" aria-label="Закрити">×</button>
+      <div class="final-celebration-inner">
+        <div class="final-celebration-kicker">ФІНАЛ</div>
+        <h1>Вітаємо команди!</h1>
+        <p>Підсумковий рахунок гри</p>
+        <div class="final-podium">
+          ${podiumItem(second,2,'second')}
+          ${podiumItem(first,1,'first')}
+          ${podiumItem(third,3,'third')}
+        </div>
+        ${restHtml}
+        <button class="btn final-celebration-button" onclick="closeFinalCelebration()">Переглянути результати</button>
+      </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend',html);
+  }
+
+  window.closeFinalCelebration=closeFinalCelebration;
+  window.showSharedFinalBoard=()=>launchFinalCelebration(true);
+
   function applyRemote(data){
+    const wasFinalPublished=!!remote.game?.final_published;
     remote.game=data.game||remote.game;
+    const isFinalPublishedNow=!!remote.game?.final_published;
+    if(!isFinalPublishedNow) sessionStorage.removeItem(FINAL_CELEBRATION_KEY);
+    if(!wasFinalPublished && isFinalPublishedNow){
+      setTimeout(()=>launchFinalCelebration(false),120);
+    }
     remote.scores=Array.isArray(data.scores)?data.scores:[];
     remote.submissions=Array.isArray(data.submissions)?data.submissions:[];
     remote.timers=Array.isArray(data.timers)?data.timers:[];
@@ -711,7 +790,13 @@
   };
 
   window.publishSharedFinal=async function(){
-    try{await call('publish_final');await refresh(false);updateUi();}catch(e){alert('Не вдалося опублікувати фінальний рахунок: '+e.message);}
+    try{
+      const was=!!remote.game?.final_published;
+      await call('publish_final');
+      await refresh(false);
+      updateUi();
+      if(!was && remote.game?.final_published && !document.getElementById('final-celebration')) launchFinalCelebration(false);
+    }catch(e){alert('Не вдалося опублікувати фінальний рахунок: '+e.message);}
   };
 
   window.resetSharedGame=async function(){

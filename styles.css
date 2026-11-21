@@ -65,3 +65,30 @@ button:hover:not(:disabled){transform:translateY(-1px)}
 .footer-brand{display:flex;align-items:center;gap:12px}.footer-brand img{width:64px;height:48px;object-fit:contain;background:#fffaf0;border-radius:10px;padding:3px}.footer-brand strong{display:block;font-size:13px}.footer-brand span{display:block;font-size:11px;color:#c9d8e3;margin-top:3px}
 .credit{font-size:12px;color:#e8edf1;text-align:right}.credit strong{color:#f1cf94}
 @media(max-width:700px){.site-footer-inner{flex-direction:column;align-items:flex-start;padding:18px}.credit{text-align:left}.login-brand .nsju-logo-wrap{width:74px;height:60px}.nsju-logo-wrap.compact{width:58px;height:46px}.brand{font-size:14px}}
+
+/* Final podium celebration */
+.final-celebration{position:fixed;inset:0;z-index:10000;background:radial-gradient(circle at 50% 18%,#315f83 0,#17324d 42%,#091a29 100%);display:flex;align-items:center;justify-content:center;overflow:hidden;color:#fff;animation:finalFadeIn .35s ease both}
+.final-celebration-inner{position:relative;z-index:4;width:min(1040px,92vw);text-align:center;padding:32px 24px 26px}
+.final-celebration-kicker{font-weight:900;letter-spacing:.22em;color:#e8c778;font-size:14px;margin-bottom:7px}
+.final-celebration h1{font-family:Georgia,serif;font-size:clamp(34px,5vw,62px);line-height:1.05;margin:0;color:#fff;text-shadow:0 4px 25px rgba(0,0,0,.32)}
+.final-celebration-inner>p{font-size:18px;color:#dbe7ef;margin:9px 0 24px}
+.final-podium{display:flex;align-items:flex-end;justify-content:center;gap:18px;min-height:330px;margin:0 auto 20px}
+.final-podium-slot{width:min(27vw,260px);display:flex;flex-direction:column;align-items:center;animation:podiumRise .7s cubic-bezier(.2,.8,.2,1) both}
+.final-podium-slot.first{animation-delay:.15s}.final-podium-slot.second{animation-delay:.32s}.final-podium-slot.third{animation-delay:.45s}
+.final-medal{font-size:46px;filter:drop-shadow(0 5px 8px rgba(0,0,0,.25));margin-bottom:5px}
+.final-team-name{font-size:clamp(17px,2.2vw,25px);font-weight:900;max-width:230px;line-height:1.15;min-height:58px;display:flex;align-items:flex-end;justify-content:center}
+.final-team-score{font-size:clamp(32px,4vw,52px);font-weight:950;color:#f2d076;line-height:1;margin-top:8px}
+.final-score-label{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:#c9d7e1;margin:4px 0 10px}
+.final-podium-block{width:100%;border-radius:18px 18px 4px 4px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 18px 45px rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.23)}
+.final-podium-block strong{font-family:Georgia,serif;font-size:58px;line-height:.9}.final-podium-block span{font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:11px;margin-top:8px}
+.first .final-podium-block{height:155px;background:linear-gradient(180deg,#d7ad3b,#9d7416)}
+.second .final-podium-block{height:115px;background:linear-gradient(180deg,#aebcca,#738493)}
+.third .final-podium-block{height:88px;background:linear-gradient(180deg,#b87b4c,#815333)}
+.final-rest{max-width:700px;margin:0 auto 18px;display:grid;gap:8px}.final-rest>div{display:grid;grid-template-columns:80px 1fr auto;gap:12px;padding:9px 14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);border-radius:12px;text-align:left;align-items:center}.final-rest span{color:#d4dee6}.final-rest b{color:#f2d076;font-size:20px}
+.final-celebration-button{background:#fff!important;color:#17324d!important;font-weight:900!important;padding:12px 22px!important}
+.final-celebration-close{position:absolute;right:22px;top:18px;z-index:6;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.18);color:#fff;width:44px;height:44px;border-radius:50%;font-size:29px;line-height:40px;cursor:pointer}
+.final-confetti-layer{position:absolute;inset:0;z-index:2;pointer-events:none}.final-confetti{position:absolute;top:-30px;width:9px;height:18px;border-radius:2px;opacity:.95;animation:confettiFall var(--dur) linear var(--delay) infinite}.final-confetti.c0{background:#e8c778}.final-confetti.c1{background:#fff}.final-confetti.c2{background:#a22e49}.final-confetti.c3{background:#6eb4d7}.final-confetti.c4{background:#e77c54}.final-confetti.c5{background:#86c79a}
+.final-firework{position:absolute;width:14px;height:14px;border-radius:50%;z-index:3;box-shadow:0 -70px #e8c778,50px -50px #fff,70px 0 #a22e49,50px 50px #6eb4d7,0 70px #e77c54,-50px 50px #86c79a,-70px 0 #fff,-50px -50px #e8c778;animation:fireworkBurst 1.7s ease-out infinite;opacity:0}.fw1{left:17%;top:24%}.fw2{right:15%;top:20%;animation-delay:.55s}.fw3{left:50%;top:11%;animation-delay:1.05s}
+@keyframes finalFadeIn{from{opacity:0}to{opacity:1}}@keyframes podiumRise{from{opacity:0;transform:translateY(70px) scale(.9)}to{opacity:1;transform:none}}@keyframes confettiFall{0%{transform:translate3d(0,-30px,0) rotate(0);opacity:0}8%{opacity:1}100%{transform:translate3d(var(--drift),110vh,0) rotate(760deg);opacity:.85}}@keyframes fireworkBurst{0%{transform:scale(.08);opacity:0}18%{opacity:1}62%{transform:scale(1.05);opacity:.9}100%{transform:scale(1.35);opacity:0}}
+@media(max-width:720px){.final-podium{gap:7px;min-height:285px}.final-podium-slot{width:31%}.final-team-name{font-size:14px;min-height:52px}.final-medal{font-size:34px}.final-podium-block strong{font-size:44px}.first .final-podium-block{height:130px}.second .final-podium-block{height:98px}.third .final-podium-block{height:76px}}
+@media(prefers-reduced-motion:reduce){.final-confetti,.final-firework{display:none}.final-podium-slot,.final-celebration{animation:none}}

@@ -2,11 +2,21 @@
   const API='https://cgyyagoxbgzneuqxcbqr.supabase.co/functions/v1/game-content-api';
   const ORIGINAL=JSON.parse(JSON.stringify(window.GAME_DATA||{}));
   let draft=null;
-  let lastRemoteStamp=null;
+  let lastAppliedKey=null;
   let loading=false;
+  let pendingForce=false;
+  let requestSeq=0;
 
   function accessCode(){
     return sessionStorage.getItem('processAbuseAccessCode')||null;
+  }
+
+  function contentScope(){
+    const role=typeof state!=='undefined'?(state.role||''):'';
+    const team=typeof state!=='undefined'?(state.teamId||''):'';
+    const opened=typeof state!=='undefined'?Number(state.openedStage??0):0;
+    const code=accessCode()||'';
+    return `${role}|${team}|${opened}|${code}`;
   }
 
   async function call(action,payload={}){
@@ -25,22 +35,50 @@
   }
 
   async function syncContent(force=false){
-    if(loading||typeof state==='undefined'||!state.role) return;
+    if(typeof state==='undefined'||!state.role) return;
+
+    if(loading){
+      if(force) pendingForce=true;
+      return;
+    }
+
     loading=true;
+    const seq=++requestSeq;
+    const scopeAtStart=contentScope();
+
     try{
       const data=await call('get_content');
+
+      // Якщо за час запиту змінилися роль, команда або відкритий етап,
+      // ця відповідь уже застаріла і не має права змінювати GAME_DATA.
+      if(seq!==requestSeq || scopeAtStart!==contentScope()){
+        pendingForce=true;
+        return;
+      }
+
       if(data.content){
         const stamp=data.updated_at||JSON.stringify(data.content).length;
-        if(force||stamp!==lastRemoteStamp){
-          lastRemoteStamp=stamp;
+        // Вміст для тренера, кожної команди та кожного openedStage різний,
+        // навіть коли updated_at у БД однаковий.
+        const applyKey=`${scopeAtStart}|${stamp}`;
+        if(force||applyKey!==lastAppliedKey){
           applyContent(data.content);
+          lastAppliedKey=applyKey;
           if(typeof render==='function'&&!document.getElementById('trainer-editor-modal')) render();
         }
       }else if(state.role==='trainer'){
         console.warn('Content editor sync: зміст симуляції відсутній на сервері');
       }
-    }catch(e){ console.warn('Content editor sync:',e.message); }
-    finally{ loading=false; }
+    }catch(e){
+      console.warn('Content editor sync:',e.message);
+    }finally{
+      loading=false;
+      if(pendingForce){
+        pendingForce=false;
+        // Запускаємо правильну синхронізацію одразу, а не чекаємо 5 секунд.
+        setTimeout(()=>syncContent(true),0);
+      }
+    }
   }
 
   function esc(v=''){return String(v).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]))}

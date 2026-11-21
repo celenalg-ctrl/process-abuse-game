@@ -518,7 +518,7 @@
     const items=stage?.task?.items||[];
     const answers={};
     for(const item of items){
-      const v=document.querySelector(`input[name="cal-${item.id}"]:checked`)?.value;
+      const v=document.querySelector(`input[name="cal-${item.id}"]:checked, input[name="${item.id}"]:checked`)?.value;
       if(!v) return alert('Оцініть усі 5 ситуацій перед поданням');
       answers[item.id]=v;
     }

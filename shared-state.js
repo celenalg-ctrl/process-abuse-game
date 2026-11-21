@@ -8,6 +8,7 @@
   let audioStage=null;
   let lastTickSecond=null;
   let previousTimerDelta=null;
+  let syncFailures=0;
 
   const ACCESS_KEY='processAbuseAccessCode';
   const FINAL_CELEBRATION_KEY='processAbuseFinalCelebrationShown';
@@ -16,8 +17,21 @@
     return sessionStorage.getItem(ACCESS_KEY)||null;
   }
 
+  async function fetchApi(body,timeoutMs=12000){
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      return await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal});
+    }catch(e){
+      if(e?.name==='AbortError') throw new Error('Сервер не відповів вчасно. Спробуйте ще раз.');
+      throw e;
+    }finally{
+      clearTimeout(timeout);
+    }
+  }
+
   window.validateGameAccess=async function(inputCode){
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'get_state',code:String(inputCode||'').trim().toUpperCase().replace(/[\s–—]+/g,'-')})});
+    const r=await fetchApi({action:'get_state',code:String(inputCode||'').trim().toUpperCase().replace(/[\s–—]+/g,'-')});
     const j=await r.json().catch(()=>({error:'Некоректна відповідь сервера'}));
     if(!r.ok||j.error) throw new Error(j.error||'Помилка сервера');
     return j;
@@ -34,7 +48,7 @@
   async function call(action,payload={}){
     const c=code();
     if(!c) throw new Error('Немає коду доступу');
-    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,code:c,...payload})});
+    const r=await fetchApi({action,code:c,...payload});
     const j=await r.json().catch(()=>({error:'Некоректна відповідь сервера'}));
     if(!r.ok||j.error) throw new Error(j.error||'Помилка сервера');
     return j;
@@ -722,8 +736,10 @@
         await window.syncGameContent(true);
       }
       if(forceRender||before!==state.openedStage) render();
+      syncFailures=0;
       setTimeout(updateUi,0);
     }catch(e){
+      syncFailures=Math.min(syncFailures+1,6);
       if(state?.role==='team'&&String(e.message).includes('не бере участі')){
         alert(e.message);
         state.role=null; state.teamId=null; save(); render();
@@ -815,11 +831,28 @@
     }catch(e){alert('Не вдалося почати нову гру: '+e.message);}
   };
 
+  function nextPollDelay(){
+    const trainer=typeof state!=='undefined'&&state.role==='trainer';
+    const base=trainer?2400:4200;
+    const jitter=Math.floor(Math.random()*(trainer?900:1800));
+    const backoff=Math.min(10000,syncFailures*2200);
+    return base+jitter+backoff;
+  }
+
+  async function pollLoop(){
+    if(document.visibilityState==='hidden'){
+      setTimeout(pollLoop,12000);
+      return;
+    }
+    await refresh(false);
+    setTimeout(pollLoop,nextPollDelay());
+  }
+
   window.GAME_SHARED={remote,call,refresh,roundScore,totalScore,isRoundPublished,activeTeams,timerRow,timerState,submissionTiming,isFinalPublished:()=>!!remote.game?.final_published};
   document.addEventListener('pointerdown',unlockTimerAudio,{passive:true});
   document.addEventListener('keydown',unlockTimerAudio);
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>refresh(true),300));
-  setInterval(()=>refresh(false),2500);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') refresh(false);});
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{await refresh(true);setTimeout(pollLoop,nextPollDelay());},300));
   setInterval(updateUi,1000);
   setInterval(timerAudioPulse,200);
 })();

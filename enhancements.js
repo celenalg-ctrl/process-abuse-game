@@ -31,7 +31,7 @@ window.submitCalibration=id=>{
   const s=stageById(Number(id));
   const out={};
   for(const item of s.task.items){
-    const v=document.querySelector(`input[name="${item.id}"]:checked`)?.value;
+    const v=document.querySelector(`input[name="cal-${item.id}"]:checked`)?.value;
     if(!v)return alert('Дайте відповідь на всі 5 ситуацій');
     out[item.id]=v;
   }
@@ -47,8 +47,10 @@ taskForm=function(s){
   const existing=state.answers[k]||'';
   const done=!!state.submitted[k];
   if(s.task.type==='calibration'){
-    const answers=(existing&&typeof existing==='object')?existing:{};
-    const items=s.task.items.map((item,idx)=>`<div class="calibration-item"><div class="calibration-number">${idx+1}</div><div class="calibration-content"><p>${escapeHtml(item.prompt)}</p><div class="options calibration-options">${s.task.options.map(o=>`<label class="option"><input type="radio" name="${item.id}" value="${escapeHtml(o)}" ${answers[item.id]===o?'checked':''} ${done?'disabled':''}><span>${escapeHtml(o)}</span></label>`).join('')}</div></div></div>`).join('');
+    let answers={};
+    if(existing&&typeof existing==='object') answers=existing;
+    else if(typeof existing==='string'&&existing){try{answers=JSON.parse(existing)||{};}catch(_){answers={};}}
+    const items=s.task.items.map((item,idx)=>`<div class="calibration-item"><div class="calibration-number">${idx+1}</div><div class="calibration-content"><p>${escapeHtml(item.prompt)}</p><div class="options calibration-options">${s.task.options.map(o=>`<label class="option"><input type="radio" name="cal-${item.id}" value="${escapeHtml(o)}" ${answers[item.id]===o?'checked':''} ${done?'disabled':''}><span>${escapeHtml(o)}</span></label>`).join('')}</div></div></div>`).join('');
     return `<div class="task-box"><div class="section-kicker">Стартове калібрування</div><h3>${escapeHtml(s.task.title)}</h3><p class="muted">Оберіть один варіант для кожної ситуації.</p>${items}<button class="btn burgundy" ${done?'disabled':''} onclick="submitCalibration(${s.id})">${done?'Відповіді подано':'Подати 5 відповідей'}</button>${done?`<p class="status ok">Відповіді зафіксовано${state.submittedAt[k]?` · ${escapeHtml(state.submittedAt[k])}`:''}.</p>`:''}</div>`;
   }
   if(s.task.type==='choice')return `<div class="task-box"><div class="section-kicker">Завдання команди</div><h3>${s.task.title}</h3><p>${s.task.prompt}</p><div class="options">${s.task.options.map(o=>`<label class="option"><input type="radio" name="choice" value="${escapeHtml(o)}" ${existing===o?'checked':''} ${done?'disabled':''}><span>${escapeHtml(o)}</span></label>`).join('')}</div><button class="btn burgundy" ${done?'disabled':''} onclick="submitChoice(${s.id})">${done?'Відповідь подано':'Подати відповідь'}</button>${done?'<p class="status ok">Відповідь зафіксовано.</p>':''}</div>`;

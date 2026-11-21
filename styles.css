@@ -92,3 +92,26 @@ button:hover:not(:disabled){transform:translateY(-1px)}
 @keyframes finalFadeIn{from{opacity:0}to{opacity:1}}@keyframes podiumRise{from{opacity:0;transform:translateY(70px) scale(.9)}to{opacity:1;transform:none}}@keyframes confettiFall{0%{transform:translate3d(0,-30px,0) rotate(0);opacity:0}8%{opacity:1}100%{transform:translate3d(var(--drift),110vh,0) rotate(760deg);opacity:.85}}@keyframes fireworkBurst{0%{transform:scale(.08);opacity:0}18%{opacity:1}62%{transform:scale(1.05);opacity:.9}100%{transform:scale(1.35);opacity:0}}
 @media(max-width:720px){.final-podium{gap:7px;min-height:285px}.final-podium-slot{width:31%}.final-team-name{font-size:14px;min-height:52px}.final-medal{font-size:34px}.final-podium-block strong{font-size:44px}.first .final-podium-block{height:130px}.second .final-podium-block{height:98px}.third .final-podium-block{height:76px}}
 @media(prefers-reduced-motion:reduce){.final-confetti,.final-firework{display:none}.final-podium-slot,.final-celebration{animation:none}}
+
+
+/* Scoring criteria */
+.scoring-modal{width:min(1040px,100%)}
+.criteria-total{display:flex;align-items:center;gap:14px;margin:20px 0;padding:16px 18px;border-radius:14px;background:#f7f1e8;border:1px solid #dfd3c2}
+.criteria-total strong{font-size:42px;color:var(--burgundy);line-height:1}
+.criteria-total span{font-weight:800;color:var(--navy)}
+.criteria-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.criteria-card{border:1px solid var(--line);border-radius:14px;padding:17px;background:#fff}
+.criteria-card h3{margin:6px 0 10px;color:var(--navy);font-size:17px}
+.criteria-card p{margin:7px 0;line-height:1.48;font-size:13px}
+.criteria-points{display:inline-flex;padding:5px 9px;border-radius:999px;background:#f4e8eb;color:var(--burgundy);font-size:12px;font-weight:900}
+.criteria-time{margin-top:18px;padding:18px;border-radius:14px;background:#fbf6ec;border-left:5px solid var(--gold)}
+.criteria-time h3{margin:5px 0 8px;color:var(--navy)}
+.criteria-time p{line-height:1.5}
+.criteria-time-scale{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:13px 0}
+.criteria-time-scale span{padding:9px 10px;border-radius:10px;background:#fff;border:1px solid #e6dccd;font-size:12px;font-weight:800;color:#554b40}
+@media(max-width:760px){
+  .criteria-grid{grid-template-columns:1fr}
+  .criteria-time-scale{grid-template-columns:1fr}
+  .top-actions{gap:6px}
+  .top-actions .btn{padding:8px 10px}
+}

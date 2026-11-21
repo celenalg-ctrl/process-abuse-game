@@ -479,10 +479,145 @@
     }
   }
 
+  function parseCalibrationAnswer(row){
+    if(!row?.answer) return null;
+    try{
+      const v=JSON.parse(row.answer);
+      return v&&typeof v==='object'?v:null;
+    }catch(e){return null;}
+  }
+
+  function comparisonRowsHtml(start,end,items){
+    return items.map((item,idx)=>{
+      const before=start?.[item.id]||'Немає відповіді';
+      const after=end?.[item.id]||'Немає відповіді';
+      const changed=!!end&&before!==after;
+      return `<tr>
+        <td style="padding:10px;border-top:1px solid var(--line);vertical-align:top"><div class="section-kicker">Ситуація ${idx+1}</div><div style="font-weight:700;line-height:1.4">${escapeHtml(item.prompt||'')}</div></td>
+        <td style="padding:10px;border-top:1px solid var(--line);vertical-align:top">${escapeHtml(before)}</td>
+        <td style="padding:10px;border-top:1px solid var(--line);vertical-align:top">${escapeHtml(after)}</td>
+        <td style="padding:10px;border-top:1px solid var(--line);vertical-align:top"><strong style="color:${changed?'var(--burgundy)':'#28704b'}">${end?(changed?'Змінилася':'Без змін'):'Очікується'}</strong></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function injectTeamPostFinalCheck(){
+    if(typeof state==='undefined'||state.role!=='team') return;
+    const old=document.getElementById('post-final-check');
+    if(Number(state.viewedStage)!==7){
+      if(old) old.remove();
+      return;
+    }
+    const finalDone=!!submissionRow(state.teamId,7);
+    if(!finalDone){
+      if(old) old.remove();
+      return;
+    }
+
+    const calibrationStage=stageById(0);
+    const items=calibrationStage?.task?.items||[];
+    const options=calibrationStage?.task?.options||[];
+    const start=parseCalibrationAnswer(submissionRow(state.teamId,0))||{};
+    const end=parseCalibrationAnswer(submissionRow(state.teamId,8));
+    const changedCount=end?items.filter(item=>(start?.[item.id]||'')!==(end?.[item.id]||'')).length:0;
+
+    let body='';
+    if(!end){
+      const questions=items.map((item,idx)=>`<div style="padding:14px 0;border-bottom:1px solid var(--line)">
+        <div class="section-kicker">Ситуація ${idx+1}</div>
+        <p style="font-weight:700;line-height:1.45;margin:5px 0 10px">${escapeHtml(item.prompt||'')}</p>
+        <div class="small muted" style="margin-bottom:8px">Ваша стартова відповідь: <strong>${escapeHtml(start?.[item.id]||'Немає відповіді')}</strong></div>
+        <div class="options">${options.map(o=>`<label class="option"><input type="radio" name="post-${item.id}" value="${escapeHtml(o)}"><span>${escapeHtml(o)}</span></label>`).join('')}</div>
+      </div>`).join('');
+      body=`<p class="muted">Після проходження всієї справи оцініть ті самі 5 ситуацій ще раз. Це не впливає на бали, а показує, чи змінилася позиція команди.</p>${questions}<button class="btn burgundy" style="margin-top:16px" onclick="submitPostFinalCheck()">Подати повторну оцінку</button>`;
+    }else{
+      body=`<div class="notice burgundy" style="margin-bottom:14px"><strong>Позиція змінилася у ${changedCount} із ${items.length} ситуацій.</strong></div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:820px">
+        <thead><tr><th style="text-align:left;padding:10px;background:#f4f1eb">Ситуація</th><th style="text-align:left;padding:10px;background:#f4f1eb">На старті</th><th style="text-align:left;padding:10px;background:#f4f1eb">Після фіналу</th><th style="text-align:left;padding:10px;background:#f4f1eb">Зміна</th></tr></thead>
+        <tbody>${comparisonRowsHtml(start,end,items)}</tbody>
+      </table></div>`;
+    }
+
+    const html=`<section class="card" id="post-final-check" style="margin-top:20px;border:2px solid #7b2f3d">
+      <div class="section-kicker">Рефлексія після фіналу</div>
+      <h2 style="margin-bottom:6px">Чи змінилася ваша оцінка?</h2>
+      ${body}
+    </section>`;
+
+    const main=document.querySelector('main.container');
+    if(!main) return;
+    if(old) old.outerHTML=html;
+    else main.insertAdjacentHTML('beforeend',html);
+  }
+
+  function injectTrainerPostFinalComparison(){
+    if(typeof state==='undefined'||state.role!=='trainer') return;
+    const old=document.getElementById('trainer-post-final-comparison');
+    if(Number(state.viewedStage)!==7){
+      if(old) old.remove();
+      return;
+    }
+    const calibrationStage=stageById(0);
+    const items=calibrationStage?.task?.items||[];
+    const teams=activeTeams();
+    const submitted=teams.filter(t=>submissionRow(t.id,8)).length;
+
+    const teamBlocks=teams.map(t=>{
+      const start=parseCalibrationAnswer(submissionRow(t.id,0))||{};
+      const end=parseCalibrationAnswer(submissionRow(t.id,8));
+      const changed=end?items.filter(item=>(start?.[item.id]||'')!==(end?.[item.id]||'')).length:0;
+      return `<div style="margin-top:16px;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;background:#faf7f1">
+          <strong>${escapeHtml(t.name)}</strong>
+          <span class="status ${end?'ok':'warn'}">${end?`Зміни: ${changed}/${items.length}`:'Повторну оцінку ще не подано'}</span>
+        </div>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:820px">
+          <thead><tr><th style="text-align:left;padding:9px 10px">Ситуація</th><th style="text-align:left;padding:9px 10px">На старті</th><th style="text-align:left;padding:9px 10px">Після фіналу</th><th style="text-align:left;padding:9px 10px">Зміна</th></tr></thead>
+          <tbody>${comparisonRowsHtml(start,end,items)}</tbody>
+        </table></div>
+      </div>`;
+    }).join('');
+
+    const html=`<section class="card" id="trainer-post-final-comparison" style="margin:20px 0;border:2px solid #17324d">
+      <div class="section-kicker">Постфінальна рефлексія</div>
+      <h2 style="margin-bottom:6px">Як змінилася оцінка команд</h2>
+      <p class="small muted">Повторну оцінку подали: <strong>${submitted}/${teams.length}</strong>. Порівняння не впливає на рахунок гри.</p>
+      ${teamBlocks}
+    </section>`;
+
+    const main=document.querySelector('main.container');
+    if(!main) return;
+    if(old) old.outerHTML=html;
+    else {
+      const controls=document.getElementById('final-score-controls');
+      if(controls) controls.insertAdjacentHTML('beforebegin',html);
+      else main.insertAdjacentHTML('beforeend',html);
+    }
+  }
+
+  window.submitPostFinalCheck=async function(){
+    const calibrationStage=stageById(0);
+    const items=calibrationStage?.task?.items||[];
+    const answers={};
+    for(const item of items){
+      const v=document.querySelector(`input[name="post-${item.id}"]:checked`)?.value;
+      if(!v) return alert('Оцініть усі 5 ситуацій перед поданням');
+      answers[item.id]=v;
+    }
+    try{
+      await call('submit',{stageId:8,answer:JSON.stringify(answers)});
+      await refresh(true);
+    }catch(e){
+      alert('Не вдалося зберегти повторну оцінку: '+e.message);
+    }
+  };
+
   function updateUi(){
     patchScoreInputs();
     injectTrainerLabels();
     injectTrainerCalibrationResults();
+    injectTeamPostFinalCheck();
+    injectTrainerPostFinalComparison();
     hideOldTeamScoreCard();
     injectParticipantSummary();
     injectTrainerRoundControls();

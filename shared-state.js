@@ -762,7 +762,34 @@
     }
   };
 
+  function injectSpeakingOrder(){
+    if(typeof state==='undefined'||!state.role) return;
+    const stageId=Number(state.viewedStage);
+    const order=timerRow(stageId)?.speaking_order;
+    const old=document.getElementById('round-speaking-order');
+    const nav=document.querySelector('.stage-shell');
+    if(!nav||!Array.isArray(order)||!order.length){old?.remove();return;}
+    const signature=JSON.stringify([stageId,state.teamId,order]);
+    if(old?.dataset.signature===signature) return;
+    old?.remove();
+    const card=document.createElement('section');
+    card.id='round-speaking-order';
+    card.dataset.signature=signature;
+    card.className='card';
+    card.style.cssText='margin-bottom:20px;border-left:4px solid var(--gold);padding:16px 20px';
+    const own=order.indexOf(state.teamId);
+    card.innerHTML='<div class="section-kicker">Жеребкування раунду</div><h3>Черговість виступів</h3>'+
+      (own>=0?'<p style="font-weight:800;color:var(--burgundy);margin:10px 0">Ваш номер виступу: '+(own+1)+'</p>':'')+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'+order.map((id,i)=>{
+        const name=D.teams.find(t=>t.id===id)?.name||id;
+        const mine=state.role==='team'&&id===state.teamId;
+        return '<div style="display:flex;align-items:center;gap:9px;padding:9px 13px;border:1px solid '+(mine?'var(--burgundy)':'var(--line)')+';border-radius:12px;background:'+(mine?'#f4e8eb':'#faf7f1')+'"><strong style="font-size:22px;color:var(--burgundy)">'+(i+1)+'</strong><span style="font-weight:700">'+escapeHtml(name)+'</span></div>';
+      }).join('')+'</div>';
+    nav.insertAdjacentElement('afterend',card);
+  }
+
   function updateUi(){
+    injectSpeakingOrder();
     patchScoreInputs();
     injectTrainerLabels();
     injectTrainerCalibrationResults();

@@ -66,11 +66,14 @@
           lastAppliedKey=applyKey;
           if(typeof render==='function'&&!document.getElementById('trainer-editor-modal')) render();
         }
+        return true;
       }else if(state.role==='trainer'){
         console.warn('Content editor sync: зміст симуляції відсутній на сервері');
       }
+      return false;
     }catch(e){
       console.warn('Content editor sync:',e.message);
+      return false;
     }finally{
       loading=false;
       if(pendingForce){

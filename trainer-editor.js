@@ -208,6 +208,7 @@
     injectStyles();
     setTimeout(()=>syncContent(true),350);
     setInterval(injectButton,800);
-    setInterval(()=>syncContent(false),5000);
+    setInterval(()=>{if(document.visibilityState==='visible') syncContent(false);},30000);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') syncContent(false);});
   });
 })();

@@ -9,6 +9,11 @@
   let lastTickSecond=null;
   let previousTimerDelta=null;
   let syncFailures=0;
+  let refreshQueued=false,queuedForce=false,refreshPromise=null;
+  let signalTimer=null,signalContentPending=false,lastContentRevision=null;
+  let pollTimer=null,loopRunning=false,lastStateSync=0,lastContentSync=0;
+  const canSync=()=>typeof state!=='undefined'&&!!state.role&&!!code()&&document.visibilityState!=='hidden';
+
 
   const ACCESS_KEY='processAbuseAccessCode';
   const FINAL_CELEBRATION_KEY='processAbuseFinalCelebrationShown';
@@ -39,10 +44,12 @@
 
   window.storeGameAccessCode=function(inputCode){
     sessionStorage.setItem(ACCESS_KEY,String(inputCode||'').trim());
+    setTimeout(()=>{if(canSync()){realtime?.connect();schedulePoll(1000);}},0);
   };
 
   window.clearGameAccessCode=function(){
     sessionStorage.removeItem(ACCESS_KEY);
+    realtime?.stop();lastContentRevision=null;clearTimeout(signalTimer);signalTimer=null;signalContentPending=false;refreshQueued=false;queuedForce=false;
   };
 
   async function call(action,payload={}){
@@ -805,26 +812,41 @@
   }
 
   async function refresh(forceRender=false){
-    if(refreshing||typeof state==='undefined'||!state.role) return;
+    if(typeof state==='undefined'||!state.role||!code())return;
+    if(refreshing){refreshQueued=true;queuedForce=queuedForce||forceRender;return refreshPromise;}
     refreshing=true;
-    try{
-      const before=state.openedStage;
-      const data=await call('get_state');
-      applyRemote(data);
-      if(before!==state.openedStage && typeof window.syncGameContent==='function'){
-        await window.syncGameContent(true);
+    const requestCode=code(), requestRole=state.role;
+    refreshPromise=(async()=>{
+      try{
+        const before=state.openedStage;
+        const data=await call('get_state');
+        if(code()!==requestCode||state.role!==requestRole)return;
+        applyRemote(data);
+        lastStateSync=Date.now();
+        if((forceRender||before!==state.openedStage)&&typeof window.syncGameContent==='function'){
+          await window.syncGameContent(false);
+          lastContentSync=Date.now();
+        }
+        if(code()!==requestCode||state.role!==requestRole)return;
+        if(forceRender||before!==state.openedStage)render();
+        syncFailures=0;
+        setTimeout(updateUi,0);
+      }catch(e){
+        syncFailures=Math.min(syncFailures+1,6);
+        if(code()!==requestCode||state.role!==requestRole)return;
+        if(state?.role==='team'&&String(e.message).includes('не бере участі')){
+          alert(e.message);window.clearGameAccessCode?.();
+          state.role=null;state.teamId=null;save();render();
+        }else console.warn('Shared game sync:',e.message);
+      }finally{
+        refreshing=false;
+        if(refreshQueued){
+          const force=queuedForce;refreshQueued=false;queuedForce=false;
+          setTimeout(()=>refresh(force),0);
+        }
       }
-      if(forceRender||before!==state.openedStage) render();
-      syncFailures=0;
-      setTimeout(updateUi,0);
-    }catch(e){
-      syncFailures=Math.min(syncFailures+1,6);
-      if(state?.role==='team'&&String(e.message).includes('не бере участі')){
-        alert(e.message);
-        state.role=null; state.teamId=null; save(); render();
-      }else console.warn('Shared game sync:',e.message);
-    }
-    finally{refreshing=false;}
+    })();
+    return refreshPromise;
   }
 
   window.submitCalibration=async function(id){
@@ -925,28 +947,67 @@
     }catch(e){alert('Не вдалося почати нову гру: '+e.message);}
   };
 
-  function nextPollDelay(){
-    const trainer=typeof state!=='undefined'&&state.role==='trainer';
-    const base=remote.game?.final_published?30000:(trainer?5000:7000);
-    const jitter=Math.floor(Math.random()*(trainer?1000:2000));
-    const backoff=Math.min(10000,syncFailures*2200);
-    return base+jitter+backoff;
+  function queueSignal(content=false){
+    if(!canSync())return;
+    signalContentPending=signalContentPending||content;
+    if(signalTimer!==null)return;
+    signalTimer=setTimeout(async()=>{
+      signalTimer=null;
+      const updateContent=signalContentPending;signalContentPending=false;
+      if(!canSync())return;
+      await refresh(false);
+      if(updateContent&&canSync()&&typeof window.syncGameContent==='function'){
+        await window.syncGameContent(false);lastContentSync=Date.now();
+      }
+    },350);
   }
-
+  const realtime=typeof window.createGameRealtime==='function'?window.createGameRealtime({
+    onSignal:({contentRevision})=>{
+      const changed=contentRevision!==lastContentRevision;
+      lastContentRevision=contentRevision;queueSignal(changed);
+    },
+    onReady:()=>{queueSignal(true);schedulePoll(1500);},
+    onStatus:ready=>{if(!ready&&canSync())schedulePoll(1000);}
+  }):null;
+  function nextPollDelay(){
+    if(!canSync())return 12000;
+    if(realtime?.isReady()&&syncFailures===0)return 180000+Math.floor(Math.random()*10000);
+    const trainer=state.role==='trainer';
+    const base=trainer?5000:7000;
+    return base+Math.floor(Math.random()*2000)+Math.min(20000,syncFailures*2500);
+  }
+  function schedulePoll(delay){
+    clearTimeout(pollTimer);
+    pollTimer=setTimeout(pollLoop,delay);
+  }
   async function pollLoop(){
-    if(document.visibilityState==='hidden'){
-      setTimeout(pollLoop,12000);
-      return;
-    }
-    await refresh(false);
-    setTimeout(pollLoop,nextPollDelay());
+    if(loopRunning){schedulePoll(1000);return;}
+    loopRunning=true;
+    try{
+      if(!canSync()){realtime?.stop();return;}
+      realtime?.connect();
+      const ready=realtime?.isReady();
+      const now=Date.now();
+      if(!ready||syncFailures>0||now-lastStateSync>=180000)await refresh(false);
+      if(typeof window.syncGameContent==='function'&&now-lastContentSync>=(ready?180000:30000)){
+        await window.syncGameContent(false);lastContentSync=Date.now();
+      }
+    }finally{loopRunning=false;schedulePoll(nextPollDelay());}
+  }
+  function resumeSync(){
+    if(!canSync()){realtime?.stop();return;}
+    realtime?.connect();queueSignal(true);schedulePoll(1000);
   }
 
   window.GAME_SHARED={remote,call,refresh,roundScore,rawRoundScore,roundTimePenalty,totalScore,isRoundPublished,activeTeams,timerRow,timerState,submissionTiming,isFinalPublished:()=>!!remote.game?.final_published};
   document.addEventListener('pointerdown',unlockTimerAudio,{passive:true});
   document.addEventListener('keydown',unlockTimerAudio);
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') refresh(false);});
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{await refresh(true);setTimeout(pollLoop,nextPollDelay());},300));
+  document.addEventListener('visibilitychange',resumeSync);
+  window.addEventListener('online',resumeSync);
+  window.addEventListener('offline',()=>realtime?.stop());
+  window.addEventListener('pagehide',()=>realtime?.stop());
+  window.addEventListener('pageshow',resumeSync);
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{if(canSync()){await refresh(true);realtime?.connect();}schedulePoll(1000);},300));
   setInterval(updateUi,1000);
   setInterval(timerAudioPulse,200);
 })();

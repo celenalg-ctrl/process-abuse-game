@@ -11,8 +11,8 @@
   let syncFailures=0;
   let refreshQueued=false,queuedForce=false,refreshPromise=null;
   let signalTimer=null,signalContentPending=false,lastContentRevision=null;
-  let pollTimer=null,loopRunning=false,lastStateSync=0,lastContentSync=0;
-  const canSync=()=>typeof state!=='undefined'&&!!state.role&&!!code()&&document.visibilityState!=='hidden';
+  let pollTimer=null,loopRunning=false,lastStateSync=0,lastContentSync=0,lastContentScope=null;
+  const canSync=()=>typeof state!=='undefined'&&!!state.role&&!!code()&&document.visibilityState!=='hidden'&&navigator.onLine!==false;
 
 
   const ACCESS_KEY='processAbuseAccessCode';
@@ -49,7 +49,7 @@
 
   window.clearGameAccessCode=function(){
     sessionStorage.removeItem(ACCESS_KEY);
-    realtime?.stop();lastContentRevision=null;clearTimeout(signalTimer);signalTimer=null;signalContentPending=false;refreshQueued=false;queuedForce=false;
+    realtime?.stop();lastContentRevision=null;lastContentScope=null;lastContentSync=0;lastStateSync=0;clearTimeout(signalTimer);signalTimer=null;signalContentPending=false;refreshQueued=false;queuedForce=false;
   };
 
   async function call(action,payload={}){
@@ -811,40 +811,48 @@
     injectResetControl();
   }
 
+  async function syncCurrentContent(forceCheck=false){
+    if(typeof window.syncGameContent!=='function'||!canSync())return;
+    const scope=JSON.stringify([state.role,state.teamId,state.openedStage,code()]);
+    if(!forceCheck&&scope===lastContentScope)return;
+    const synced=await window.syncGameContent(false);
+    if(synced&&scope===JSON.stringify([state.role,state.teamId,state.openedStage,code()])){
+      lastContentScope=scope;lastContentSync=Date.now();
+    }
+  }
+
   async function refresh(forceRender=false){
     if(typeof state==='undefined'||!state.role||!code())return;
-    if(refreshing){refreshQueued=true;queuedForce=queuedForce||forceRender;return refreshPromise;}
+    refreshQueued=true;queuedForce=queuedForce||forceRender;
+    if(refreshing)return refreshPromise;
     refreshing=true;
-    const requestCode=code(), requestRole=state.role;
     refreshPromise=(async()=>{
       try{
-        const before=state.openedStage;
-        const data=await call('get_state');
-        if(code()!==requestCode||state.role!==requestRole)return;
-        applyRemote(data);
-        lastStateSync=Date.now();
-        if((forceRender||before!==state.openedStage)&&typeof window.syncGameContent==='function'){
-          await window.syncGameContent(false);
-          lastContentSync=Date.now();
+        while(refreshQueued&&state.role&&code()){
+          refreshQueued=false;
+          const force=queuedForce;queuedForce=false;
+          const requestCode=code(),requestRole=state.role;
+          try{
+            const before=state.openedStage;
+            const data=await call('get_state');
+            if(code()!==requestCode||state.role!==requestRole)continue;
+            applyRemote(data);
+            lastStateSync=Date.now();
+            await syncCurrentContent(false);
+            if(code()!==requestCode||state.role!==requestRole)continue;
+            if(force||before!==state.openedStage)render();
+            syncFailures=0;
+            setTimeout(updateUi,0);
+          }catch(e){
+            syncFailures=Math.min(syncFailures+1,6);
+            if(code()!==requestCode||state.role!==requestRole)continue;
+            if(state?.role==='team'&&String(e.message).includes('не бере участі')){
+              alert(e.message);window.clearGameAccessCode?.();
+              state.role=null;state.teamId=null;save();render();
+            }else console.warn('Shared game sync:',e.message);
+          }
         }
-        if(code()!==requestCode||state.role!==requestRole)return;
-        if(forceRender||before!==state.openedStage)render();
-        syncFailures=0;
-        setTimeout(updateUi,0);
-      }catch(e){
-        syncFailures=Math.min(syncFailures+1,6);
-        if(code()!==requestCode||state.role!==requestRole)return;
-        if(state?.role==='team'&&String(e.message).includes('не бере участі')){
-          alert(e.message);window.clearGameAccessCode?.();
-          state.role=null;state.teamId=null;save();render();
-        }else console.warn('Shared game sync:',e.message);
-      }finally{
-        refreshing=false;
-        if(refreshQueued){
-          const force=queuedForce;refreshQueued=false;queuedForce=false;
-          setTimeout(()=>refresh(force),0);
-        }
-      }
+      }finally{refreshing=false;}
     })();
     return refreshPromise;
   }
@@ -956,9 +964,7 @@
       const updateContent=signalContentPending;signalContentPending=false;
       if(!canSync())return;
       await refresh(false);
-      if(updateContent&&canSync()&&typeof window.syncGameContent==='function'){
-        await window.syncGameContent(false);lastContentSync=Date.now();
-      }
+      if(updateContent)await syncCurrentContent(true);
     },350);
   }
   const realtime=typeof window.createGameRealtime==='function'?window.createGameRealtime({
@@ -989,9 +995,7 @@
       const ready=realtime?.isReady();
       const now=Date.now();
       if(!ready||syncFailures>0||now-lastStateSync>=180000)await refresh(false);
-      if(typeof window.syncGameContent==='function'&&now-lastContentSync>=(ready?180000:30000)){
-        await window.syncGameContent(false);lastContentSync=Date.now();
-      }
+      if(now-lastContentSync>=(ready?180000:30000))await syncCurrentContent(true);
     }finally{loopRunning=false;schedulePoll(nextPollDelay());}
   }
   function resumeSync(){

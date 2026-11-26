@@ -927,8 +927,8 @@
 
   function nextPollDelay(){
     const trainer=typeof state!=='undefined'&&state.role==='trainer';
-    const base=trainer?2400:4200;
-    const jitter=Math.floor(Math.random()*(trainer?900:1800));
+    const base=remote.game?.final_published?30000:(trainer?5000:7000);
+    const jitter=Math.floor(Math.random()*(trainer?1000:2000));
     const backoff=Math.min(10000,syncFailures*2200);
     return base+jitter+backoff;
   }

@@ -206,9 +206,7 @@
 
   document.addEventListener('DOMContentLoaded',()=>{
     injectStyles();
-    setTimeout(()=>syncContent(true),350);
     setInterval(injectButton,800);
-    setInterval(()=>{if(document.visibilityState==='visible') syncContent(false);},30000);
-    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible') syncContent(false);});
+    // Content synchronization is coordinated by shared-state.js (Realtime + fallback).
   });
 })();

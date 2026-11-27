@@ -26,3 +26,6 @@ jobs:
       - run: node tests/realtime-sync.cjs
       - if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'optimize-egress-')
         run: node tests/realtime-live.cjs
+
+      - if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'verify-production-realtime-')
+        run: node tests/realtime-production.cjs

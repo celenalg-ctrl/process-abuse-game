@@ -66,11 +66,14 @@
           lastAppliedKey=applyKey;
           if(typeof render==='function'&&!document.getElementById('trainer-editor-modal')) render();
         }
+        return true;
       }else if(state.role==='trainer'){
         console.warn('Content editor sync: зміст симуляції відсутній на сервері');
       }
+      return false;
     }catch(e){
       console.warn('Content editor sync:',e.message);
+      return false;
     }finally{
       loading=false;
       if(pendingForce){
@@ -206,8 +209,7 @@
 
   document.addEventListener('DOMContentLoaded',()=>{
     injectStyles();
-    setTimeout(()=>syncContent(true),350);
     setInterval(injectButton,800);
-    setInterval(()=>syncContent(false),5000);
+    // Content synchronization is coordinated by shared-state.js (Realtime + fallback).
   });
 })();

@@ -1,0 +1,28 @@
+name: Realtime regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'game-realtime.js'
+      - 'shared-state.js'
+      - 'trainer-editor.js'
+      - 'index.html'
+      - 'tests/realtime-*.cjs'
+      - '.github/workflows/realtime-regression.yml'
+permissions:
+  contents: read
+jobs:
+  sync-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: node --check game-realtime.js && node --check shared-state.js && node --check trainer-editor.js
+      - run: node tests/realtime-sync.cjs
+      - if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'optimize-egress-')
+        run: node tests/realtime-live.cjs
